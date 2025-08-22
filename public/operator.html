@@ -8,15 +8,20 @@
         :root {
             --bg-main: #f4f4f8; --bg-sidebar: #ffffff; --bg-hover: #f0f0f0; --bg-active: #e0e7ff;
             --text-main: #333; --text-light: #777; --border-color: #ddd;
-            --msg-user-bg: #dcf8c6; --msg-operator-bg: #fff; --btn-primary-bg: #007bff; --btn-danger-bg: #dc3545;
+            --msg-user-bg: #dcf8c6; --msg-operator-bg: #fff; --btn-primary-bg: #007bff; --btn-danger-bg: #dc3545; --btn-success-bg: #28a745;
         }
         html.dark-theme {
             --bg-main: #121212; --bg-sidebar: #1e1e1e; --bg-hover: #2c2c2c; --bg-active: #3a3a3a;
             --text-main: #e0e0e0; --text-light: #999; --border-color: #444;
-            --msg-user-bg: #264b27; --msg-operator-bg: #3a3d40; --btn-primary-bg: #0d6efd; --btn-danger-bg: #bb2d3b;
+            --msg-user-bg: #264b27; --msg-operator-bg: #3a3d40; --btn-primary-bg: #0d6efd; --btn-danger-bg: #bb2d3b; --btn-success-bg: #22863a;
         }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; display: flex; height: 100vh; background-color: var(--bg-main); color: var(--text-main); transition: background-color 0.2s, color 0.2s; }
-        .sidebar { width: 300px; border-right: 1px solid var(--border-color); background-color: var(--bg-sidebar); display: flex; flex-direction: column; }
+        .sidebar { width: 320px; border-right: 1px solid var(--border-color); background-color: var(--bg-sidebar); display: flex; flex-direction: column; }
+        .sidebar .nav-tabs { display: flex; border-bottom: 1px solid var(--border-color); flex-shrink: 0;}
+        .sidebar .tab { padding: 15px; cursor: pointer; text-align: center; flex-grow: 1; background-color: transparent; border: none; color: var(--text-light); font-weight: bold; font-size: 1em;}
+        .sidebar .tab.active { color: var(--text-main); border-bottom: 2px solid var(--btn-primary-bg); }
+        .tab-content { display: none; flex-direction: column; height: 100%; overflow: hidden; }
+        .tab-content.active { display: flex; }
         .sidebar-header { display: flex; justify-content: space-between; align-items: center; padding: 0 20px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
         .sidebar h2 { font-size: 1.2em; margin: 20px 0; }
         #theme-toggle { background: none; border: 1px solid var(--border-color); color: var(--text-main); cursor: pointer; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2em; display: flex; align-items: center; justify-content: center; padding: 0; }
@@ -24,10 +29,22 @@
         html.dark-theme #theme-toggle .moon-icon { display: none; }
         html.dark-theme #theme-toggle .sun-icon { display: block; }
         #users { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; }
-        #users li { padding: 15px 20px; cursor: pointer; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s; }
+        #users li { padding: 15px 20px; cursor: pointer; border-bottom: 1px solid var(--border-color); }
         #users li:hover { background-color: var(--bg-hover); }
         #users li.active { background-color: var(--bg-active); font-weight: bold; }
         #users li small { display: block; color: var(--text-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .quick-reply-section { padding: 10px; border-top: 1px solid var(--border-color); flex-shrink: 0; }
+        .quick-reply-container { max-height: 140px; overflow-y: auto; padding-right: 5px; }
+        .quick-reply-item { display: flex; align-items: center; gap: 5px; padding: 6px 0; border-bottom: 1px solid var(--border-color); }
+        .quick-reply-item span { flex-grow: 1; font-size: 0.9em; cursor: pointer; }
+        .reply-actions button { background: none; border: none; cursor: pointer; font-size: 1em; color: var(--text-light); padding: 2px 4px; }
+        #yorum-onay-listesi { padding: 10px; overflow-y: auto; flex-grow: 1; }
+        .yorum-karti { background-color: var(--bg-main); border-left: 3px solid var(--text-light); border-radius: 3px; padding: 10px; margin-bottom: 10px; }
+        .yorum-karti blockquote { margin: 0 0 10px 0; font-style: italic; }
+        .yorum-karti-footer { display: flex; justify-content: space-between; align-items: center; font-size: 0.9em; }
+        .yorum-karti-actions button { font-size: 0.8em; padding: 5px 10px; border-radius: 5px; cursor: pointer; border: none; color: white; margin-left: 5px; }
+        .btn-onayla { background-color: var(--btn-success-bg); }
+        .btn-sil { background-color: var(--btn-danger-bg); }
         #chat-window { flex-grow: 1; display: flex; flex-direction: column; }
         #chat-header { padding: 20px; border-bottom: 1px solid var(--border-color); background-color: var(--bg-sidebar); font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
         .chat-title { display: flex; align-items: center; gap: 8px; }
@@ -35,11 +52,6 @@
         .action-btn:hover { color: var(--text-main); border-color: var(--text-main); }
         .action-btn.end-chat { border-color: var(--btn-danger-bg); color: var(--btn-danger-bg); }
         .action-btn.end-chat:hover { background-color: var(--btn-danger-bg); color: white; }
-        .quick-reply-section { padding: 10px; border-top: 1px solid var(--border-color); background-color: var(--bg-sidebar); flex-shrink: 0; }
-        .quick-reply-container { max-height: 140px; overflow-y: auto; padding-right: 5px; }
-        .quick-reply-item { display: flex; align-items: center; gap: 5px; padding: 6px 0; border-bottom: 1px solid var(--border-color); }
-        .quick-reply-item span { flex-grow: 1; font-size: 0.9em; cursor: pointer; }
-        .reply-actions button { background: none; border: none; cursor: pointer; font-size: 1em; color: var(--text-light); padding: 2px 4px; }
         #messages-container { display: flex; flex-grow: 1; align-items: center; justify-content: center; color: var(--text-light); text-align: center; }
         #messages { flex-grow: 1; padding: 20px; overflow-y: auto; display: none; flex-direction: column; gap: 12px; }
         .message { padding: 10px 15px; border-radius: 18px; max-width: 70%; word-wrap: break-word; }
@@ -54,22 +66,35 @@
 </head>
 <body>
     <div class="sidebar">
-        <div class="sidebar-header">
-            <h2>Aktif Sohbetler</h2>
-            <button id="theme-toggle" title="Temayı Değiştir">
-                <span class="moon-icon">🌙</span><span class="sun-icon">☀️</span>
-            </button>
+        <div class="nav-tabs">
+            <button class="tab active" data-tab="sohbetler">Sohbetler</button>
+            <button class="tab" data-tab="yorumlar">Yorum Onayı</button>
         </div>
-        <ul id="users"></ul>
-        <div class="quick-reply-section">
-            <strong>Hızlı Cevaplar</strong>
-            <div id="quick-replies-container" class="quick-reply-container"></div>
-            <form id="new-reply-form">
-                <input id="new-reply-input" placeholder="Yeni hızlı cevap ekle..." required autocomplete="off">
-                <button type="submit">Kaydet</button>
-            </form>
+
+        <div id="sohbetler-content" class="tab-content active">
+            <div class="sidebar-header">
+                <h2>Aktif Sohbetler</h2>
+                <button id="theme-toggle" title="Temayı Değiştir">
+                    <span class="moon-icon">🌙</span><span class="sun-icon">☀️</span>
+                </button>
+            </div>
+            <ul id="users"></ul>
+            <div class="quick-reply-section">
+                <strong>Hızlı Cevaplar</strong>
+                <div id="quick-replies-container" class="quick-reply-container"></div>
+                <form id="new-reply-form">
+                    <input id="new-reply-input" placeholder="Yeni hızlı cevap ekle..." required autocomplete="off">
+                    <button type="submit">Kaydet</button>
+                </form>
+            </div>
+        </div>
+        
+        <div id="yorumlar-content" class="tab-content">
+            <div class="sidebar-header"><h2>Onay Bekleyen Yorumlar</h2></div>
+            <div id="yorum-onay-listesi"><p style="text-align:center; padding: 20px;">Yorumlar yükleniyor...</p></div>
         </div>
     </div>
+    
     <div id="chat-window">
         <div id="chat-header" style="display: none;">
             <div class="chat-title">
@@ -89,7 +114,6 @@
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script>
         const token = localStorage.getItem('authToken');
-
         if (!token) {
             window.location.href = '/login.html';
         }
@@ -119,10 +143,27 @@
         const themeToggle = document.getElementById('theme-toggle');
         const editUsernameBtn = document.getElementById('edit-username-btn');
         const endChatBtn = document.getElementById('end-chat-btn');
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        const yorumOnayListesi = document.getElementById('yorum-onay-listesi');
 
         let conversations = new Map();
         let quickReplies = [];
         let activeUserId = null;
+        
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                const targetId = tab.dataset.tab + '-content';
+                tabContents.forEach(tc => {
+                    tc.classList.remove('active');
+                });
+                const targetContent = document.getElementById(targetId);
+                targetContent.classList.add('active');
+                if(tab.dataset.tab === 'yorumlar') fetchPendingComments();
+            });
+        });
 
         function applyTheme(theme) {
             document.documentElement.classList.toggle('dark-theme', theme === 'dark');
@@ -208,6 +249,54 @@
             }
         }
 
+        async function fetchPendingComments() {
+            try {
+                const response = await fetchWithAuth('/api/onay-bekleyen-yorumlar');
+                if (!response.ok) throw new Error('Yorumlar alınamadı');
+                const yorumlar = await response.json();
+                renderPendingComments(yorumlar);
+            } catch (error) {
+                console.error(error);
+                yorumOnayListesi.innerHTML = '<p>Yorumlar yüklenemedi.</p>';
+            }
+        }
+
+        function renderPendingComments(yorumlar) {
+            yorumOnayListesi.innerHTML = '';
+            if (yorumlar.length === 0) {
+                yorumOnayListesi.innerHTML = '<p style="text-align:center; padding: 20px;">Onay bekleyen yorum yok.</p>';
+                return;
+            }
+            yorumlar.forEach(yorum => {
+                const kart = document.createElement('div');
+                kart.className = 'yorum-karti';
+                kart.dataset.id = yorum.id;
+                kart.innerHTML = `
+                    <blockquote>"${yorum.mesaj}"</blockquote>
+                    <div class="yorum-karti-footer">
+                        <span><strong>${yorum.ad}</strong> - Puan: ${'★'.repeat(yorum.puan)}${'☆'.repeat(5 - yorum.puan)}</span>
+                        <div class="yorum-karti-actions">
+                            <button class="btn-onayla">Onayla</button>
+                            <button class="btn-sil">Sil</button>
+                        </div>
+                    </div>
+                `;
+                kart.querySelector('.btn-onayla').addEventListener('click', () => approveComment(yorum.id));
+                kart.querySelector('.btn-sil').addEventListener('click', () => deletePendingComment(yorum.id));
+                yorumOnayListesi.appendChild(kart);
+            });
+        }
+        
+        async function approveComment(id) {
+            await fetchWithAuth(`/api/yorumlar/onayla/${id}`, { method: 'POST' });
+            document.querySelector(`.yorum-karti[data-id='${id}']`).remove();
+        }
+
+        async function deletePendingComment(id) {
+            await fetchWithAuth(`/api/onay-bekleyen-yorumlar/${id}`, { method: 'DELETE' });
+            document.querySelector(`.yorum-karti[data-id='${id}']`).remove();
+        }
+
         socket.on('all conversations', (allConvos) => {
             allConvos.forEach(convo => conversations.set(convo.id, convo));
             renderUserList();
@@ -291,6 +380,7 @@
 
         socket.on('connect', () => {
             console.log('Sunucuya bağlandı!');
+            fetchAndRenderQuickReplies();
         });
         
         socket.on('connect_error', (err) => {
@@ -299,8 +389,6 @@
                 window.location.href = '/login.html';
             }
         });
-
-        fetchAndRenderQuickReplies();
     </script>
 </body>
 </html>

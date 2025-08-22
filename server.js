@@ -32,7 +32,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'cok-gizli-bir-anahtar';
 app.post('/login', (req, res) => {
     const { password } = req.body;
     if (password === OPERATOR_PASSWORD) {
-        // Kullanıcıya 8 saat geçerli bir "giriş bileti" (token) ver
         const token = jwt.sign({ isOperator: true }, JWT_SECRET, { expiresIn: '8h' });
         res.status(200).json({ token });
     } else {
@@ -60,7 +59,6 @@ const authMiddleware = (req, res, next) => {
     }
 };
 
-// operator.html dosyasının kendisi public, ama içindeki script'ler token ile çalışacak
 app.get('/operator.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'operator.html'));
 });
@@ -68,6 +66,8 @@ app.get('/operator.html', (req, res) => {
 // Tabloları Oluşturma Fonksiyonu
 const createTables = async () => {
     try {
+        await db.query(`CREATE TABLE IF NOT EXISTS yorumlar (id SERIAL PRIMARY KEY, ad TEXT NOT NULL, mesaj TEXT NOT NULL, puan INTEGER NOT NULL, tarih TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)`);
+        await db.query(`CREATE TABLE IF NOT EXISTS onay_bekleyen_yorumlar (id SERIAL PRIMARY KEY, ad TEXT NOT NULL, mesaj TEXT NOT NULL, puan INTEGER NOT NULL, tarih TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)`);
         await db.query(`CREATE TABLE IF NOT EXISTS hizli_cevaplar (id SERIAL PRIMARY KEY, metin TEXT NOT NULL UNIQUE)`);
         await db.query(`CREATE TABLE IF NOT EXISTS sohbet_gecmisi (id SERIAL PRIMARY KEY, kullanici_id TEXT, gonderen TEXT, mesaj TEXT, tarih TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)`);
         await db.query(`CREATE TABLE IF NOT EXISTS kullanici_bilgileri (kullanici_id TEXT PRIMARY KEY, isim TEXT)`);
@@ -85,7 +85,52 @@ const createTables = async () => {
     }
 };
 
-// API Uç Noktaları - Artık Token ile korunuyor
+// YORUM API UÇ NOKTALARI
+app.get('/api/yorumlar', async (req, res) => {
+    try {
+        const result = await db.query('SELECT * FROM yorumlar ORDER BY tarih DESC');
+        res.json({ yorumlar: result.rows });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/yorumlar', async (req, res) => {
+    try {
+        const { ad, mesaj, puan } = req.body;
+        if (!ad || !mesaj || !puan) return res.status(400).json({ error: 'Tüm alanlar zorunludur.' });
+        await db.query('INSERT INTO onay_bekleyen_yorumlar (ad, mesaj, puan) VALUES ($1, $2, $3)', [ad, mesaj, puan]);
+        res.status(201).json({ message: 'Yorumunuz onaya gönderildi.' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// YORUM YÖNETİM API'LARI (OPERATÖR İÇİN)
+app.get('/api/onay-bekleyen-yorumlar', authMiddleware, async (req, res) => {
+    try {
+        const result = await db.query('SELECT * FROM onay_bekleyen_yorumlar ORDER BY tarih ASC');
+        res.json(result.rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/yorumlar/onayla/:id', authMiddleware, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const yorumRes = await db.query('SELECT * FROM onay_bekleyen_yorumlar WHERE id = $1', [id]);
+        if (yorumRes.rows.length === 0) return res.status(404).json({ error: 'Yorum bulunamadı.' });
+        const yorum = yorumRes.rows[0];
+        await db.query('INSERT INTO yorumlar (ad, mesaj, puan, tarih) VALUES ($1, $2, $3, $4)', [yorum.ad, yorum.mesaj, yorum.puan, yorum.tarih]);
+        await db.query('DELETE FROM onay_bekleyen_yorumlar WHERE id = $1', [id]);
+        res.status(200).json({ message: 'Yorum onaylandı.' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/onay-bekleyen-yorumlar/:id', authMiddleware, async (req, res) => {
+    try {
+        const result = await db.query('DELETE FROM onay_bekleyen_yorumlar WHERE id = $1', [req.params.id]);
+        if (result.rowCount === 0) return res.status(404).json({ error: 'Yorum bulunamadı.'});
+        res.status(200).json({ message: 'Yorum silindi.' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// HIZLI CEVAP API'LARI
 app.get('/api/hizli-cevaplar', authMiddleware, async (req, res) => {
     try {
         const result = await db.query('SELECT * FROM hizli_cevaplar ORDER BY id');
@@ -127,9 +172,8 @@ let conversations = new Map();
 
 io.on('connection', (socket) => {
     console.log('Yeni bir bağlantı:', socket.id);
-    socket.isOperator = false; // Varsayılan olarak müşteri
+    socket.isOperator = false;
 
-    // Operatör mü diye token ile kontrol et
     const token = socket.handshake.auth.token;
     if (token) {
         jwt.verify(token, JWT_SECRET, (err, decoded) => {
@@ -144,7 +188,6 @@ io.on('connection', (socket) => {
         });
     }
 
-    // Müşteri olayları
     socket.on('user session connect', async ({ userId }) => {
         onlineUsers.set(socket.id, userId);
         let convo = conversations.get(userId);
@@ -168,7 +211,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Operatör olayları
     socket.on('chat message from operator', async ({ targetUserId, message }) => {
         if (socket.isOperator) {
             const convo = conversations.get(targetUserId);

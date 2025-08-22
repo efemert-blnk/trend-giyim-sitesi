@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
     
     <style>
-        :root{--ana-renk:#252a34;--ikinci-renk:#bfa071;--arkaplan-renk:#ffffff;--yazi-renk:#333;--kart-arkaplan:#fff;--golge-renk:rgba(0,0,0,0.07);--kenarlik-renk:#e9e9e9;--baslik-font:'Playfair+Display',serif;--govde-font:'Lato',sans-serif}
+        :root{--ana-renk:#252a34;--ikinci-renk:#bfa071;--arkaplan-renk:#ffffff;--yazi-renk:#333;--kart-arkaplan:#fff;--golge-renk:rgba(0,0,0,0.07);--kenarlik-renk:#e9e9e9;--baslik-font:'Playfair Display',serif;--govde-font:'Lato',sans-serif}
         body.koyu-tema{--ana-renk:#121212;--ikinci-renk:#bfa071;--arkaplan-renk:#181818;--yazi-renk:#e0e0e0;--kart-arkaplan:#1e1e1e;--golge-renk:rgba(0,0,0,0.2);--kenarlik-renk:#2c2c2c}
         body{font-family:var(--govde-font);margin:0;padding:0;line-height:1.7;color:var(--yazi-renk);background-color:var(--arkaplan-renk);transition:background-color .3s,color .3s;-webkit-font-smoothing:antialiased}
         html{scroll-behavior:smooth}
@@ -80,7 +80,75 @@
         .firma-karti{color:var(--yazi-renk);padding:15px 30px;font-weight:700;font-size:1.4em;opacity:.7;transition:opacity .3s}
         .firma-karti:hover{opacity:1}
         footer{background:var(--ana-renk);color:#a0a0a0;text-align:center;padding:30px 0;transition:background-color .3s;border-top:1px solid var(--kenarlik-renk)}
-        @media (max-width:768px){header .container{flex-direction:column}header nav{flex-direction:column;width:100%}header nav ul{padding-top:15px;text-align:center}header nav ul li{display:block;padding:5px 0}#tema-degistirici{margin-top:10px}#hero h2{font-size:3em}section{padding:80px 0}section h3{font-size:2.2em}}
+        
+        /* MOBİL MENÜ STİLLERİ */
+        header .menu-toggle {
+            display: none;
+            flex-direction: column;
+            justify-content: space-around;
+            width: 30px;
+            height: 25px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            z-index: 1002;
+        }
+        header .menu-toggle .bar {
+            width: 100%;
+            height: 3px;
+            background-color: #fff;
+            border-radius: 10px;
+            transition: all 0.3s ease-in-out;
+        }
+
+        @media (max-width: 768px){
+            header .container{
+                flex-direction: row;
+                justify-content: space-between;
+            }
+            header nav{
+                position: fixed;
+                top: 0;
+                right: -100%;
+                width: 70%;
+                max-width: 300px;
+                height: 100vh;
+                background-color: rgba(25, 25, 25, 0.95);
+                backdrop-filter: blur(10px);
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                transition: right 0.3s ease-in-out;
+                padding-top: 0;
+            }
+            header nav.active {
+                right: 0;
+            }
+            header nav ul{
+                flex-direction: column;
+                padding-top: 0;
+                width: 100%;
+            }
+            header nav ul li{
+                display: block;
+                margin: 0;
+                width: 100%;
+                padding: 15px 0;
+                text-align: center;
+            }
+             header nav ul li:not(:last-child) {
+                border-bottom: 1px solid rgba(255,255,255,0.1);
+            }
+            header .menu-toggle {
+                display: flex;
+            }
+            #tema-degistirici { margin: 20px 0 0 0; }
+            #hero h2{font-size:3em}
+            section{padding:80px 0}
+            section h3{font-size:2.2em}
+        }
+        
         #yardimci-buton{position:fixed;bottom:25px;right:25px;background-color:var(--ikinci-renk);color:#fff;width:60px;height:60px;border-radius:50%;display:flex;justify-content:center;align-items:center;cursor:pointer;box-shadow:0 5px 15px rgba(0,0,0,0.2);z-index:1001;transition:transform .3s}
         #yardimci-buton:hover{transform:scale(1.1)}
         #yardimci-ekrani{position:fixed;bottom:100px;right:25px;width:90%;max-width:350px;height:450px;background-color:var(--kart-arkaplan);border-radius:10px;box-shadow:0 10px 30px var(--golge-renk);z-index:1001;display:flex;flex-direction:column;transition:opacity .3s,transform .3s;transform-origin:bottom right}
@@ -107,7 +175,7 @@
     <header>
         <div class="container">
             <h1 class="logo">TREND GİYİM</h1>
-            <nav>
+            <nav id="main-nav">
                 <ul>
                     <li><a href="#hero">Ana Sayfa</a></li>
                     <li><a href="#hakkimizda">Hakkımızda</a></li>
@@ -120,6 +188,11 @@
                     <svg id="ay-ikon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M12 21.5c-5.24 0-9.5-4.26-9.5-9.5S6.76 2.5 12 2.5c.34 0 .68.02 1.01.06C8.2 3.68 5.5 7.05 5.5 11c0 4.13 3.37 7.5 7.5 7.5c3.05 0 5.66-1.84 6.85-4.45c.19.29.35.6.48.92C18.6 18.28 15.53 21.5 12 21.5z"/></svg>
                 </button>
             </nav>
+            <button class="menu-toggle" id="menu-toggle" aria-label="Menüyü aç/kapat">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </button>
         </div>
     </header>
 
@@ -220,7 +293,7 @@
                          <li><strong>Telefon:</strong> <a href="tel:05432575650">0543 257 56 50</a></li>
                          <li><strong>E-posta:</strong> <a href="mailto:trendcollection@hotmail.com">trendcollection@hotmail.com</a></li>
                      </ul>
-                     <a href="http://googleusercontent.com/maps.google.com/3" target="_blank" class="cta-button">Google Haritalar'da Görüntüle</a>
+                     <a href="https://www.google.com/maps" target="_blank" class="cta-button">Google Haritalar'da Görüntüle</a>
                 </div>
             </div>
         </section>
@@ -272,7 +345,7 @@
             const e=document.getElementById("tema-degistirici"),t=document.body;function o(){const o=localStorage.getItem("tema");null!==o?o==="koyu"?t.classList.add("koyu-tema"):t.classList.remove("koyu-tema"):window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches&&t.classList.add("koyu-tema")}o(),e.addEventListener("click",function(){t.classList.toggle("koyu-tema"),t.classList.contains("koyu-tema")?localStorage.setItem("tema","koyu"):localStorage.setItem("tema","acik")});const a=document.getElementById("dinamik-yorum-alani"),n=document.getElementById("yorum-metni"),i=document.getElementById("yorum-sahibi"),d=["Düğünüm için aldığım takım elbise harikaydı. Kalitesi ve duruşuyla herkesin beğenisini topladı. Herkese tavsiye ederim.","Çorum'daki en kaliteli ve modern ürünler kesinlikle burada. Yıllardır alışveriş yaptığım tek adres.","İlgi ve alakaları için çok teşekkür ederim. Doğru seçimi yapmam için gerçekten çok yardımcı oldular.","Profesyonel destekleri ve stil danışmanlıkları için minnettarım. İş toplantımda sayelerinde çok şıktım.","Fiyatlar sunulan kaliteye göre gerçekten çok uygun. Bütçemi aşmadan harika bir alışveriş yaptım."];const r=["Ahmet Y.","Mehmet K.","Can Ö.","Serkan D."];function s(){if(!a)return;a.classList.add("gizli"),setTimeout(()=>{const e=d[Math.floor(Math.random()*d.length)],t=r[Math.floor(Math.random()*r.length)];n.textContent=`"${e}"`,i.textContent=`- ${t}`,a.classList.remove("gizli")},400)}s(),setInterval(s,5e3);const l=document.getElementById("yorumFormu"),m=document.getElementById("form-sonuc"),u=document.getElementById("yorum-sayac");
             let guncelYorumSayisi=localStorage.getItem("kayitliYorumSayisi");u&&(guncelYorumSayisi?u.textContent=`(${parseInt(guncelYorumSayisi).toLocaleString("tr-TR")} Yorum)`:(guncelYorumSayisi=1240,u.textContent=`(${guncelYorumSayisi.toLocaleString("tr-TR")} Yorum)`)),l&&l.addEventListener("submit",function(e){e.preventDefault();const t=document.getElementById("puan-degeri").value;t&&(m.textContent="Müşteri yorumunuz başarıyla gönderilmiştir.",m.style.color="green",guncelYorumSayisi++,u.textContent=`(${guncelYorumSayisi.toLocaleString("tr-TR")} Yorum)`,localStorage.setItem("kayitliYorumSayisi",guncelYorumSayisi),l.reset(),document.querySelectorAll(".yildiz-secim .yildiz").forEach(e=>{e.classList.remove("dolu")}))});const c=document.querySelectorAll(".yildiz-secim .yildiz"),p=document.getElementById("puan-degeri");function g(e){c.forEach(t=>{t.dataset.puan<=e?t.classList.add("dolu"):t.classList.remove("dolu")})}c.forEach(e=>{e.addEventListener("mouseover",()=>{g(e.dataset.puan)}),e.addEventListener("mouseleave",()=>{g(p.value)}),e.addEventListener("click",()=>{p.value=e.dataset.puan,g(p.value)})});
             
-            // ======================= FİNAL CANLI DESTEK SCRİPT'İ =======================
+            // FİNAL CANLI DESTEK SCRİPT'İ
             const socket = io();
 
             const yardimciButon = document.getElementById('yardimci-buton');
@@ -329,11 +402,26 @@
 
             socket.on('operator reply', (message) => {
                 addMessage(message, 'gelen');
-            });
+});
 
             socket.on('chat ended by operator', () => {
                 mesajlarAlani.innerHTML = '<div class="chat-ended-message">Destek temsilcisi görüşmeyi sonlandırdı. Yeni bir mesaj yazarak tekrar sohbet başlatabilirsiniz.</div>';
                 destekFormu.classList.add('disabled');
+            });
+
+            // MOBİL MENÜ SCRİPT'İ
+            const menuToggle = document.getElementById('menu-toggle');
+            const mainNav = document.getElementById('main-nav');
+            const navLinks = mainNav.querySelectorAll('a');
+
+            menuToggle.addEventListener('click', () => {
+                mainNav.classList.toggle('active');
+            });
+
+            navLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                    mainNav.classList.remove('active');
+                });
             });
         });
     </script>

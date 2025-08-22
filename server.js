@@ -7,25 +7,37 @@ const { Client } = require('pg');
 const path = require('path');
 const session = require('express-session');
 const sharedsession = require('socket.io-express-session');
+const pgSimple = require('connect-pg-simple');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Veritabanı Bağlantısı (Session Store için de kullanılacak)
+const db = new Client({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+});
+
+db.connect(err => {
+    if (err) return console.error('Veritabanına bağlanılamadı', err.stack);
+    console.log('PostgreSQL veritabanına başarıyla bağlandı.');
+    createTables();
+});
+
 // Oturum (Session) Ayarları
 const sessionMiddleware = session({
+    store: new (pgSimple(session))({
+        pool: db, // Mevcut veritabanı bağlantısını kullan
+        tableName: 'user_sessions' // Oturumları saklamak için tablo adı
+    }),
     secret: process.env.SESSION_SECRET || 'cok-gizli-bir-anahtar-yerelde-kullanmak-icin',
     resave: false,
     saveUninitialized: true,
     cookie: {
-        maxAge: 1000 * 60 * 60 * 8 // 8 saatlik oturum
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 günlük oturum
+        secure: process.env.NODE_ENV === 'production' // Sadece HTTPS'te cookie gönder
     }
 });
-
-// Render gibi platformlarda güvenli (HTTPS) bağlantı için
-if (process.env.NODE_ENV === 'production') {
-    app.set('trust proxy', 1);
-    sessionMiddleware.cookie.secure = true;
-}
 
 app.use(sessionMiddleware);
 // ---
@@ -58,18 +70,6 @@ const authMiddleware = (req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/operator.html', authMiddleware, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'operator.html'));
-});
-
-// Veritabanı Bağlantısı ve Kurulumu
-const db = new Client({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
-});
-
-db.connect(err => {
-    if (err) return console.error('Veritabanına bağlanılamadı', err.stack);
-    console.log('PostgreSQL veritabanına başarıyla bağlandı.');
-    createTables();
 });
 
 const createTables = async () => {
@@ -133,10 +133,7 @@ app.delete('/api/hizli-cevaplar/:id', authMiddleware, async (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
-// Socket.IO'nun Express oturumlarını kullanmasını sağla
-io.use(sharedsession(sessionMiddleware, {
-    autoSave: true
-}));
+io.use(sharedsession(sessionMiddleware, { autoSave: true }));
 
 let onlineUsers = new Map();
 let conversations = new Map();

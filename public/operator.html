@@ -92,7 +92,6 @@
             withCredentials: true 
         });
         
-        // Element Seçimleri
         const usersList = document.getElementById('users');
         const chatHeader = document.getElementById('chat-header');
         const chatUsername = document.getElementById('chat-username');
@@ -111,7 +110,6 @@
         let quickReplies = [];
         let activeUserId = null;
 
-        // Tema Yönetimi
         function applyTheme(theme) {
             document.documentElement.classList.toggle('dark-theme', theme === 'dark');
         }
@@ -122,12 +120,10 @@
         });
         applyTheme(localStorage.getItem('support-theme'));
 
-        // Hızlı Cevap Yönetimi (CRUD)
         async function fetchAndRenderQuickReplies() {
             try {
                 const response = await fetch('/api/hizli-cevaplar');
                 if(!response.ok) {
-                    // Eğer giriş yapılmamışsa ve API isteği başarısız olursa, login'e yönlendir.
                     if(response.status === 401 || response.status === 403) window.location.href = '/login.html';
                     return;
                 }
@@ -195,7 +191,6 @@
             }
         }
 
-        // Sohbet Yönetimi
         socket.on('all conversations', (allConvos) => {
             allConvos.forEach(convo => conversations.set(convo.id, convo));
             renderUserList();
@@ -277,13 +272,11 @@
             }
         });
 
-        // Bağlantı kurulduğunda operatör olarak kaydolmayı dene
         socket.on('connect', () => {
             console.log('Sunucuya bağlandı!');
             socket.emit('register as operator');
         });
 
-        // Başlangıç
         fetchAndRenderQuickReplies();
     </script>
 </body>

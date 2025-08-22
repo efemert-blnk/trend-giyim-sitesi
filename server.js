@@ -12,7 +12,7 @@ const pgSimple = require('connect-pg-simple');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Veritabanı Bağlantısı (Session Store için de kullanılacak)
+// Veritabanı Bağlantısı
 const db = new Client({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
@@ -27,15 +27,15 @@ db.connect(err => {
 // Oturum (Session) Ayarları
 const sessionMiddleware = session({
     store: new (pgSimple(session))({
-        pool: db, // Mevcut veritabanı bağlantısını kullan
-        tableName: 'user_sessions' // Oturumları saklamak için tablo adı
+        pool: db,
+        tableName: 'user_sessions'
     }),
     secret: process.env.SESSION_SECRET || 'cok-gizli-bir-anahtar-yerelde-kullanmak-icin',
     resave: false,
     saveUninitialized: true,
     cookie: {
-        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 günlük oturum
-        secure: process.env.NODE_ENV === 'production' // Sadece HTTPS'te cookie gönder
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 gün
+        secure: process.env.NODE_ENV === 'production'
     }
 });
 
@@ -91,7 +91,7 @@ const createTables = async () => {
             console.log("Varsayılan hızlı cevaplar eklendi.");
         }
     } catch (err) {
-        console.error("Tablo oluşturma hatası:", err.message);
+        if (err.code !== '42P07') console.error("Tablo oluşturma hatası:", err.message); // Zaten varsa hatasını yoksay
     }
 };
 
@@ -130,10 +130,9 @@ app.delete('/api/hizli-cevaplar/:id', authMiddleware, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-
 // Canlı Destek (Socket.IO)
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, { cors: { origin: "*", credentials: true } });
 
 io.use(sharedsession(sessionMiddleware, { autoSave: true }));
 

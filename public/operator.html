@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Destek Paneli</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --bg-main: #f4f4f8; --bg-sidebar: #ffffff; --bg-hover: #f0f0f0; --bg-active: #e0e7ff;
+            --text-main: #333; --text-light: #777; --border-color: #ddd;
+            --msg-user-bg: #dcf8c6; --msg-operator-bg: #fff; --btn-primary-bg: #007bff; --btn-danger-bg: #dc3545;
+        }
+        html.dark-theme {
+            --bg-main: #121212; --bg-sidebar: #1e1e1e; --bg-hover: #2c2c2c; --bg-active: #3a3a3a;
+            --text-main: #e0e0e0; --text-light: #999; --border-color: #444;
+            --msg-user-bg: #264b27; --msg-operator-bg: #3a3d40; --btn-primary-bg: #0d6efd; --btn-danger-bg: #bb2d3b;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; display: flex; height: 100vh; background-color: var(--bg-main); color: var(--text-main); transition: background-color 0.2s, color 0.2s; }
+        .sidebar { width: 300px; border-right: 1px solid var(--border-color); background-color: var(--bg-sidebar); display: flex; flex-direction: column; }
+        .sidebar-header { display: flex; justify-content: space-between; align-items: center; padding: 0 20px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
+        .sidebar h2 { font-size: 1.2em; margin: 20px 0; }
+        #theme-toggle { background: none; border: 1px solid var(--border-color); color: var(--text-main); cursor: pointer; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2em; display: flex; align-items: center; justify-content: center; padding: 0; }
+        #theme-toggle .sun-icon { display: none; }
+        html.dark-theme #theme-toggle .moon-icon { display: none; }
+        html.dark-theme #theme-toggle .sun-icon { display: block; }
+        #users { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; }
+        #users li { padding: 15px 20px; cursor: pointer; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s; }
+        #users li:hover { background-color: var(--bg-hover); }
+        #users li.active { background-color: var(--bg-active); font-weight: bold; }
+        #users li small { display: block; color: var(--text-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #chat-window { flex-grow: 1; display: flex; flex-direction: column; }
+        #chat-header { padding: 20px; border-bottom: 1px solid var(--border-color); background-color: var(--bg-sidebar); font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        .chat-title { display: flex; align-items: center; gap: 8px; }
+        .action-btn { background: none; border: 1px solid var(--border-color); color: var(--text-light); cursor: pointer; border-radius: 5px; padding: 5px 8px; font-size: 0.8em; transition: color .2s, border-color .2s; }
+        .action-btn:hover { color: var(--text-main); border-color: var(--text-main); }
+        .action-btn.end-chat { border-color: var(--btn-danger-bg); color: var(--btn-danger-bg); }
+        .action-btn.end-chat:hover { background-color: var(--btn-danger-bg); color: white; }
+        .quick-reply-section { padding: 10px; border-top: 1px solid var(--border-color); background-color: var(--bg-sidebar); flex-shrink: 0; }
+        .quick-reply-container { max-height: 140px; overflow-y: auto; padding-right: 5px; }
+        .quick-reply-item { display: flex; align-items: center; gap: 5px; padding: 6px 0; border-bottom: 1px solid var(--border-color); }
+        .quick-reply-item span { flex-grow: 1; font-size: 0.9em; cursor: pointer; }
+        .reply-actions button { background: none; border: none; cursor: pointer; font-size: 1em; color: var(--text-light); padding: 2px 4px; }
+        #messages-container { display: flex; flex-grow: 1; align-items: center; justify-content: center; color: var(--text-light); text-align: center; }
+        #messages { flex-grow: 1; padding: 20px; overflow-y: auto; display: none; flex-direction: column; gap: 12px; }
+        .message { padding: 10px 15px; border-radius: 18px; max-width: 70%; word-wrap: break-word; }
+        .user-msg { background-color: var(--msg-user-bg); align-self: flex-start; }
+        .operator-msg { background-color: var(--msg-operator-bg); border: 1px solid var(--border-color); align-self: flex-end; }
+        #reply-form { display: flex; padding: 20px; border-top: 1px solid var(--border-color); background-color: var(--bg-sidebar); }
+        #reply-input { flex-grow: 1; padding: 12px; border: 1px solid var(--border-color); border-radius: 20px; margin-right: 10px; background-color: var(--bg-main); color: var(--text-main); }
+        #new-reply-form { display: flex; gap: 8px; margin-top: 10px; }
+        #new-reply-input { flex-grow: 1; padding: 8px; border: 1px solid var(--border-color); border-radius: 5px; background-color: var(--bg-main); color: var(--text-main); }
+        #new-reply-form button { background-color: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h2>Aktif Sohbetler</h2>
+            <button id="theme-toggle" title="Temayı Değiştir">
+                <span class="moon-icon">🌙</span><span class="sun-icon">☀️</span>
+            </button>
+        </div>
+        <ul id="users"></ul>
+        <div class="quick-reply-section">
+            <strong>Hızlı Cevaplar</strong>
+            <div id="quick-replies-container" class="quick-reply-container"></div>
+            <form id="new-reply-form">
+                <input id="new-reply-input" placeholder="Yeni hızlı cevap ekle..." required autocomplete="off">
+                <button type="submit">Kaydet</button>
+            </form>
+        </div>
+    </div>
+    <div id="chat-window">
+        <div id="chat-header" style="display: none;">
+            <div class="chat-title">
+                <span id="chat-username"></span>
+                <button id="edit-username-btn" class="action-btn" title="İsmi Düzenle">✏️</button>
+            </div>
+            <button id="end-chat-btn" class="action-btn end-chat">Görüşmeyi Bitir</button>
+        </div>
+        <div id="messages-container">Lütfen bir sohbet seçin</div>
+        <div id="messages"></div>
+        <form id="reply-form" style="display: none;">
+            <input id="reply-input" placeholder="Yanıtınızı yazın veya kısayol numarasını girin..." autocomplete="off" />
+            <button type="submit">Gönder</button>
+        </form>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script>
+        const socket = io({
+            withCredentials: true 
+        });
+        
+        // Element Seçimleri
+        const usersList = document.getElementById('users');
+        const chatHeader = document.getElementById('chat-header');
+        const chatUsername = document.getElementById('chat-username');
+        const messagesContainer = document.getElementById('messages-container');
+        const messagesDiv = document.getElementById('messages');
+        const replyForm = document.getElementById('reply-form');
+        const replyInput = document.getElementById('reply-input');
+        const quickRepliesContainer = document.getElementById('quick-replies-container');
+        const newReplyForm = document.getElementById('new-reply-form');
+        const newReplyInput = document.getElementById('new-reply-input');
+        const themeToggle = document.getElementById('theme-toggle');
+        const editUsernameBtn = document.getElementById('edit-username-btn');
+        const endChatBtn = document.getElementById('end-chat-btn');
+
+        let conversations = new Map();
+        let quickReplies = [];
+        let activeUserId = null;
+
+        // Tema Yönetimi
+        function applyTheme(theme) {
+            document.documentElement.classList.toggle('dark-theme', theme === 'dark');
+        }
+        themeToggle.addEventListener('click', () => {
+            const newTheme = document.documentElement.classList.contains('dark-theme') ? 'light' : 'dark';
+            localStorage.setItem('support-theme', newTheme);
+            applyTheme(newTheme);
+        });
+        applyTheme(localStorage.getItem('support-theme'));
+
+        // Hızlı Cevap Yönetimi (CRUD)
+        async function fetchAndRenderQuickReplies() {
+            try {
+                const response = await fetch('/api/hizli-cevaplar');
+                if(!response.ok) {
+                    // Eğer giriş yapılmamışsa ve API isteği başarısız olursa, login'e yönlendir.
+                    if(response.status === 401 || response.status === 403) window.location.href = '/login.html';
+                    return;
+                }
+                quickReplies = await response.json();
+                quickRepliesContainer.innerHTML = '';
+                quickReplies.forEach(addQuickReplyItem);
+            } catch (error) { console.error('Hızlı cevaplar alınamadı:', error); }
+        }
+
+        function addQuickReplyItem(reply, index) {
+            const item = document.createElement('div');
+            item.className = 'quick-reply-item';
+            item.innerHTML = `
+                <span title="Kullanmak için tıkla veya sohbete ${index + 1} yazıp Enter'a bas.">${index + 1}. ${reply.metin}</span>
+                <div class="reply-actions">
+                    <button class="edit-reply-btn" data-id="${reply.id}" data-text="${reply.metin}" title="Düzenle">✏️</button>
+                    <button class="delete-reply-btn" data-id="${reply.id}" title="Sil">🗑️</button>
+                </div>
+            `;
+            item.querySelector('span').addEventListener('click', () => {
+                replyInput.value = reply.metin;
+                replyInput.focus();
+            });
+            item.querySelector('.edit-reply-btn').addEventListener('click', handleEditReply);
+            item.querySelector('.delete-reply-btn').addEventListener('click', handleDeleteReply);
+            quickRepliesContainer.appendChild(item);
+        }
+        
+        newReplyForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = newReplyInput.value.trim();
+            if (!text) return;
+            try {
+                const response = await fetch('/api/hizli-cevaplar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ metin: text })
+                });
+                if (response.ok) {
+                    fetchAndRenderQuickReplies();
+                    newReplyInput.value = '';
+                } else {
+                    alert(`Hata: ${(await response.json()).error}`);
+                }
+            } catch (error) { alert('Cevap kaydedilemedi.'); }
+        });
+
+        async function handleEditReply(e) {
+            const id = e.currentTarget.dataset.id;
+            const oldText = e.currentTarget.dataset.text;
+            const newText = prompt("Yeni metni girin:", oldText);
+            if (newText && newText.trim() && newText.trim() !== oldText) {
+                await fetch(`/api/hizli-cevaplar/${id}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ metin: newText.trim() })
+                });
+                fetchAndRenderQuickReplies();
+            }
+        }
+
+        async function handleDeleteReply(e) {
+            const id = e.currentTarget.dataset.id;
+            if (confirm("Bu cevabı silmek istediğinizden emin misiniz?")) {
+                await fetch(`/api/hizli-cevaplar/${id}`, { method: 'DELETE' });
+                fetchAndRenderQuickReplies();
+            }
+        }
+
+        // Sohbet Yönetimi
+        socket.on('all conversations', (allConvos) => {
+            allConvos.forEach(convo => conversations.set(convo.id, convo));
+            renderUserList();
+        });
+        socket.on('update conversation', (convo) => {
+            conversations.set(convo.id, convo);
+            renderUserList();
+            if (convo.id === activeUserId) {
+                chatUsername.textContent = convo.name;
+                renderMessages(convo.id);
+            }
+        });
+
+        function renderUserList() {
+            const sortedConvos = Array.from(conversations.values()).sort((a,b) => (b.messages.length > 0 ? new Date(b.messages[b.messages.length - 1].timestamp || 0) : 0) - (a.messages.length > 0 ? new Date(a.messages[a.messages.length - 1].timestamp || 0) : 0));
+            usersList.innerHTML = '';
+            sortedConvos.forEach(convo => {
+                const li = document.createElement('li');
+                li.dataset.userId = convo.id;
+                li.innerHTML = `<strong>${convo.name}</strong><small>${convo.lastMessage || '...'}</small>`;
+                if (convo.id === activeUserId) li.classList.add('active');
+                li.addEventListener('click', () => selectUser(convo.id));
+                usersList.appendChild(li);
+            });
+        }
+        
+        function selectUser(userId) {
+            activeUserId = userId;
+            const convo = conversations.get(userId);
+            chatUsername.textContent = convo.name;
+            chatHeader.style.display = 'flex';
+            messagesContainer.style.display = 'none';
+            messagesDiv.style.display = 'flex';
+            replyForm.style.display = 'flex';
+            renderUserList();
+            renderMessages(userId);
+            replyInput.focus();
+        }
+
+        function renderMessages(userId) {
+            messagesDiv.innerHTML = '';
+            const convo = conversations.get(userId);
+            if (convo) {
+                convo.messages.forEach(msg => {
+                    const msgDiv = document.createElement('div');
+                    msgDiv.classList.add('message', msg.from === 'user' ? 'user-msg' : 'operator-msg');
+                    msgDiv.textContent = msg.text;
+                    messagesDiv.appendChild(msgDiv);
+                });
+            }
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        replyForm.addEventListener('submit', e => {
+            e.preventDefault();
+            let message = replyInput.value.trim();
+            if (message && activeUserId) {
+                const replyIndex = parseInt(message, 10) - 1;
+                if (!isNaN(replyIndex) && quickReplies[replyIndex]) {
+                    message = quickReplies[replyIndex].metin;
+                }
+                socket.emit('chat message from operator', { targetUserId: activeUserId, message });
+                replyInput.value = '';
+            }
+        });
+
+        editUsernameBtn.addEventListener('click', () => {
+            if (!activeUserId) return;
+            const oldName = conversations.get(activeUserId).name;
+            const newName = prompt("Müşteri için yeni bir isim girin:", oldName);
+            if (newName && newName.trim() && newName.trim() !== oldName) {
+                socket.emit('update user name', { userId: activeUserId, newName: newName.trim() });
+            }
+        });
+        
+        endChatBtn.addEventListener('click', () => {
+            if (activeUserId && confirm("Bu görüşmeyi sonlandırmak istediğinizden emin misiniz? Müşteri ekranı temizlenecektir.")) {
+                socket.emit('end chat', { userId: activeUserId });
+            }
+        });
+
+        // Bağlantı kurulduğunda operatör olarak kaydolmayı dene
+        socket.on('connect', () => {
+            console.log('Sunucuya bağlandı!');
+            socket.emit('register as operator');
+        });
+
+        // Başlangıç
+        fetchAndRenderQuickReplies();
+    </script>
+</body>
+</html>

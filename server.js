@@ -27,15 +27,15 @@ db.connect(err => {
 // Oturum (Session) Ayarları
 const sessionMiddleware = session({
     store: new (pgSimple(session))({
-        pool: db,
-        tableName: 'user_sessions'
+        pool: db, // Mevcut veritabanı bağlantısını kullan
+        tableName: 'user_sessions' // Oturumları saklamak için tablo adı
     }),
     secret: process.env.SESSION_SECRET || 'cok-gizli-bir-anahtar-yerelde-kullanmak-icin',
     resave: false,
     saveUninitialized: true,
     cookie: {
-        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 gün
-        secure: process.env.NODE_ENV === 'production'
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 günlük oturum
+        secure: process.env.NODE_ENV === 'production' // Sadece HTTPS'te cookie gönder
     }
 });
 
@@ -78,7 +78,15 @@ const createTables = async () => {
         await db.query(`CREATE TABLE IF NOT EXISTS hizli_cevaplar (id SERIAL PRIMARY KEY, metin TEXT NOT NULL UNIQUE)`);
         await db.query(`CREATE TABLE IF NOT EXISTS sohbet_gecmisi (id SERIAL PRIMARY KEY, kullanici_id TEXT, gonderen TEXT, mesaj TEXT, tarih TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)`);
         await db.query(`CREATE TABLE IF NOT EXISTS kullanici_bilgileri (kullanici_id TEXT PRIMARY KEY, isim TEXT)`);
-        await db.query(`CREATE TABLE IF NOT EXISTS "user_sessions" ("sid" varchar NOT NULL COLLATE "default","sess" json NOT NULL,"expire" timestamp(6) NOT NULL) WITH (OIDS=FALSE); ALTER TABLE "user_sessions" ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE;`);
+        
+        // DÜZELTİLMİŞ user_sessions TABLOSU OLUŞTURMA KOMUTU
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS "user_sessions" (
+                "sid" varchar NOT NULL PRIMARY KEY,
+                "sess" json NOT NULL,
+                "expire" timestamp(6) NOT NULL
+            );
+        `);
 
         const res = await db.query("SELECT COUNT(*) as count FROM hizli_cevaplar");
         if (res.rows[0].count == 0) {
@@ -91,7 +99,9 @@ const createTables = async () => {
             console.log("Varsayılan hızlı cevaplar eklendi.");
         }
     } catch (err) {
-        if (err.code !== '42P07') console.error("Tablo oluşturma hatası:", err.message); // Zaten varsa hatasını yoksay
+        if (err.code !== '42P07') { // 'relation already exists' hatasını yoksay
+            console.error("Tablo oluşturma hatası:", err.message);
+        }
     }
 };
 

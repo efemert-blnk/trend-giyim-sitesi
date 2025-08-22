@@ -69,11 +69,12 @@
         .puanlama-alani .yildiz-secim{display:inline-flex;font-size:2.5em;direction:rtl}
         .puanlama-alani .yildiz-secim .yildiz{cursor:pointer;color:#ccc;transition:color .2s}
         .puanlama-alani .yildiz-secim .yildiz.dolu,.puanlama-alani .yildiz-secim .yildiz.hover{color:#f39c12}
-        #iletisim .iletisim-bilgileri{text-align:center;margin:auto}
-        #iletisim ul{list-style:none;padding:0;display:inline-block;text-align:left}
-        #iletisim li{background:var(--kart-arkaplan);padding:20px;margin-bottom:15px;border-left:5px solid var(--ikinci-renk);border-radius:5px;box-shadow:0 5px 15px var(--golge-renk)}
-        #iletisim a{color:var(--ikinci-renk);text-decoration:none;font-weight:700}
-        #iletisim a:hover{text-decoration:underline}
+        .iletisim-container{display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start;}
+        .iletisim-bilgileri{text-align:left; flex: 1; min-width: 300px;}
+        .harita{flex: 1; min-width: 300px;}
+        .harita iframe{width:100%;height:400px;border:none;border-radius:10px;box-shadow:0 10px 30px var(--golge-renk);}
+        #iletisim ul{list-style:none;padding:0;}
+        #iletisim li{background:transparent;padding:10px 0;margin-bottom:10px;border-left:3px solid var(--ikinci-renk);padding-left:15px;border-radius:0;box-shadow:none;}
         #firmalar{background-color:var(--arkaplan-renk)}
         body.koyu-tema #firmalar{background-color:#0d0d0d}
         .firmalar-listesi{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:40px}
@@ -81,72 +82,21 @@
         .firma-karti:hover{opacity:1}
         footer{background:var(--ana-renk);color:#a0a0a0;text-align:center;padding:30px 0;transition:background-color .3s;border-top:1px solid var(--kenarlik-renk)}
         
-        /* MOBİL MENÜ STİLLERİ */
-        header .menu-toggle {
-            display: none;
-            flex-direction: column;
-            justify-content: space-around;
-            width: 30px;
-            height: 25px;
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            padding: 0;
-            z-index: 1002;
-        }
-        header .menu-toggle .bar {
-            width: 100%;
-            height: 3px;
-            background-color: #fff;
-            border-radius: 10px;
-            transition: all 0.3s ease-in-out;
-        }
-
-        @media (max-width: 768px){
-            header .container{
-                flex-direction: row;
-                justify-content: space-between;
-            }
-            header nav{
-                position: fixed;
-                top: 0;
-                right: -100%;
-                width: 70%;
-                max-width: 300px;
-                height: 100vh;
-                background-color: rgba(25, 25, 25, 0.95);
-                backdrop-filter: blur(10px);
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
-                transition: right 0.3s ease-in-out;
-                padding-top: 0;
-            }
-            header nav.active {
-                right: 0;
-            }
-            header nav ul{
-                flex-direction: column;
-                padding-top: 0;
-                width: 100%;
-            }
-            header nav ul li{
-                display: block;
-                margin: 0;
-                width: 100%;
-                padding: 15px 0;
-                text-align: center;
-            }
-             header nav ul li:not(:last-child) {
-                border-bottom: 1px solid rgba(255,255,255,0.1);
-            }
-            header .menu-toggle {
-                display: flex;
-            }
+        header .menu-toggle { display: none; flex-direction: column; justify-content: space-around; width: 30px; height: 25px; background: transparent; border: none; cursor: pointer; padding: 0; z-index: 1002; }
+        header .menu-toggle .bar { width: 100%; height: 3px; background-color: #fff; border-radius: 10px; transition: all 0.3s ease-in-out; }
+        @media (max-width: 768px) {
+            header .container { flex-direction: row; justify-content: space-between; align-items: center; }
+            header nav { position: fixed; top: 0; right: -100%; width: 70%; max-width: 300px; height: 100vh; background-color: rgba(25, 25, 25, 0.95); backdrop-filter: blur(10px); flex-direction: column; justify-content: center; align-items: center; transition: right 0.3s ease-in-out; padding-top: 0; }
+            header nav.active { right: 0; }
+            header nav ul { flex-direction: column; padding-top: 0; width: 100%; }
+            header nav ul li { display: block; margin: 0; width: 100%; padding: 15px 0; text-align: center; }
+            header nav ul li a {font-size: 1.1em;}
+            header nav ul li:not(:last-child) { border-bottom: 1px solid rgba(255,255,255,0.1); }
+            header .menu-toggle { display: flex; }
             #tema-degistirici { margin: 20px 0 0 0; }
-            #hero h2{font-size:3em}
-            section{padding:80px 0}
-            section h3{font-size:2.2em}
+            #hero h2 { font-size: 3em; }
+            section { padding: 80px 0; }
+            section h3 { font-size: 2.2em; }
         }
         
         #yardimci-buton{position:fixed;bottom:25px;right:25px;background-color:var(--ikinci-renk);color:#fff;width:60px;height:60px;border-radius:50%;display:flex;justify-content:center;align-items:center;cursor:pointer;box-shadow:0 5px 15px rgba(0,0,0,0.2);z-index:1001;transition:transform .3s}
@@ -245,15 +195,15 @@
             <div class="container">
                 <h3>Müşterilerimiz Bizim İçin Ne Dedi?</h3>
                 <div class="puanlama-ozeti">
-                    <strong class="puan">4.6</strong>
+                    <strong class="puan"></strong>
                     <div class="yildizlar">
                         ★★★★★
-                        <div class="yildizlar-dolu" style="width: 92%;">★★★★★</div>
+                        <div class="yildizlar-dolu" style="width: 0%;">★★★★★</div>
                     </div>
-                    <span class="yorum-sayisi" id="yorum-sayac">(1,240 Yorum)</span>
+                    <span class="yorum-sayisi" id="yorum-sayac">(0 Yorum)</span>
                 </div>
                 <div id="dinamik-yorum-alani">
-                    <p id="yorum-metni">Yorumlar yükleniyor...</p>
+                    <p id="yorum-metni">Henüz yorum bulunmuyor. İlk yorumu siz yapın!</p>
                     <div id="yorum-sahibi" class="yorum-sahibi"></div>
                 </div>
             </div>
@@ -286,14 +236,17 @@
         <section id="iletisim">
             <div class="container">
                 <h3>İletişim</h3>
-                <div class="iletisim-bilgileri">
-                     <p>Bilgi ve randevu için bize ulaşabilirsiniz.</p>
-                     <ul>
-                         <li><strong>Adres:</strong> Gülabibey Mah. Kubbeli Cad. Büyük Zafer Çarşısı, Merkez/ÇORUM</li>
-                         <li><strong>Telefon:</strong> <a href="tel:05432575650">0543 257 56 50</a></li>
-                         <li><strong>E-posta:</strong> <a href="mailto:trendcollection@hotmail.com">trendcollection@hotmail.com</a></li>
-                     </ul>
-                     <a href="https://www.google.com/maps" target="_blank" class="cta-button">Google Haritalar'da Görüntüle</a>
+                <div class="iletisim-container">
+                    <div class="iletisim-bilgileri">
+                         <ul>
+                             <li><strong>Adres:</strong> Gülabibey, Kubbeli Cd. No:15, 19100 Çorum Merkez/Çorum</li>
+                             <li><strong>Telefon:</strong> <a href="tel:05432575650">0543 257 56 50</a></li>
+                             <li><strong>E-posta:</strong> <a href="mailto:trendcollection@hotmail.com">trendcollection@hotmail.com</a></li>
+                         </ul>
+                    </div>
+                    <div class="harita">
+                        <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3000.835159045012!2d34.95208331538963!3d40.54583897935017!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x4087ee425841136b%3A0x6b454438333f5f6b!2zR8O8bGFiYmV5LCBLdWJiZWxpIENkLiBObzoxNSwgMTkxMDAgw4dvcnVtIE1lcmtlei_Dh29ydW0!5e0!3m2!1str!2str!4v1661202581343!5m2!1str!2str" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+                    </div>
                 </div>
             </div>
         </section>
@@ -322,7 +275,9 @@
             <button id="yardimci-kapat">×</button>
         </div>
         <div class="yardimci-icerik">
-            <div id="mesajlar"></div>
+            <div id="mesajlar">
+                 <div class="mesaj gelen">Merhaba! Size nasıl yardımcı olabiliriz?</div>
+            </div>
             <form id="canli-destek-formu">
                 <textarea placeholder="Mesajınızı yazın..." rows="1"></textarea>
                 <button type="submit" aria-label="Gönder">
@@ -341,13 +296,113 @@
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            // SİTENİN ORİJİNAL JAVASCRIPT KODLARI
-            const e=document.getElementById("tema-degistirici"),t=document.body;function o(){const o=localStorage.getItem("tema");null!==o?o==="koyu"?t.classList.add("koyu-tema"):t.classList.remove("koyu-tema"):window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches&&t.classList.add("koyu-tema")}o(),e.addEventListener("click",function(){t.classList.toggle("koyu-tema"),t.classList.contains("koyu-tema")?localStorage.setItem("tema","koyu"):localStorage.setItem("tema","acik")});const a=document.getElementById("dinamik-yorum-alani"),n=document.getElementById("yorum-metni"),i=document.getElementById("yorum-sahibi"),d=["Düğünüm için aldığım takım elbise harikaydı. Kalitesi ve duruşuyla herkesin beğenisini topladı. Herkese tavsiye ederim.","Çorum'daki en kaliteli ve modern ürünler kesinlikle burada. Yıllardır alışveriş yaptığım tek adres.","İlgi ve alakaları için çok teşekkür ederim. Doğru seçimi yapmam için gerçekten çok yardımcı oldular.","Profesyonel destekleri ve stil danışmanlıkları için minnettarım. İş toplantımda sayelerinde çok şıktım.","Fiyatlar sunulan kaliteye göre gerçekten çok uygun. Bütçemi aşmadan harika bir alışveriş yaptım."];const r=["Ahmet Y.","Mehmet K.","Can Ö.","Serkan D."];function s(){if(!a)return;a.classList.add("gizli"),setTimeout(()=>{const e=d[Math.floor(Math.random()*d.length)],t=r[Math.floor(Math.random()*r.length)];n.textContent=`"${e}"`,i.textContent=`- ${t}`,a.classList.remove("gizli")},400)}s(),setInterval(s,5e3);const l=document.getElementById("yorumFormu"),m=document.getElementById("form-sonuc"),u=document.getElementById("yorum-sayac");
-            let guncelYorumSayisi=localStorage.getItem("kayitliYorumSayisi");u&&(guncelYorumSayisi?u.textContent=`(${parseInt(guncelYorumSayisi).toLocaleString("tr-TR")} Yorum)`:(guncelYorumSayisi=1240,u.textContent=`(${guncelYorumSayisi.toLocaleString("tr-TR")} Yorum)`)),l&&l.addEventListener("submit",function(e){e.preventDefault();const t=document.getElementById("puan-degeri").value;t&&(m.textContent="Müşteri yorumunuz başarıyla gönderilmiştir.",m.style.color="green",guncelYorumSayisi++,u.textContent=`(${guncelYorumSayisi.toLocaleString("tr-TR")} Yorum)`,localStorage.setItem("kayitliYorumSayisi",guncelYorumSayisi),l.reset(),document.querySelectorAll(".yildiz-secim .yildiz").forEach(e=>{e.classList.remove("dolu")}))});const c=document.querySelectorAll(".yildiz-secim .yildiz"),p=document.getElementById("puan-degeri");function g(e){c.forEach(t=>{t.dataset.puan<=e?t.classList.add("dolu"):t.classList.remove("dolu")})}c.forEach(e=>{e.addEventListener("mouseover",()=>{g(e.dataset.puan)}),e.addEventListener("mouseleave",()=>{g(p.value)}),e.addEventListener("click",()=>{p.value=e.dataset.puan,g(p.value)})});
-            
-            // FİNAL CANLI DESTEK SCRİPT'İ
-            const socket = io();
+            const temaButonu = document.getElementById("tema-degistirici");
+            const body = document.body;
+            function temaUygula() {
+                const mevcutTema = localStorage.getItem("tema");
+                if (mevcutTema === "koyu") body.classList.add("koyu-tema");
+                else body.classList.remove("koyu-tema");
+            }
+            temaUygula();
+            temaButonu.addEventListener("click", () => {
+                body.classList.toggle("koyu-tema");
+                localStorage.setItem("tema", body.classList.contains("koyu-tema") ? "koyu" : "acik");
+            });
 
+            const yorumFormu = document.getElementById('yorumFormu');
+            const formSonuc = document.getElementById('form-sonuc');
+            const puanlamaYildizlari = document.querySelectorAll(".yildiz-secim .yildiz");
+            const puanInput = document.getElementById("puan-degeri");
+
+            puanlamaYildizlari.forEach(yildiz => {
+                yildiz.addEventListener("click", () => {
+                    puanInput.value = yildiz.dataset.puan;
+                    let puan = parseInt(puanInput.value);
+                    puanlamaYildizlari.forEach(y => {
+                        y.classList.toggle("dolu", parseInt(y.dataset.puan) <= puan);
+                    });
+                });
+            });
+
+            if(yorumFormu) {
+                yorumFormu.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const ad = document.getElementById('yorumAd').value;
+                    const mesaj = document.getElementById('yorumMesaj').value;
+                    const puan = puanInput.value;
+
+                    if (!puan) {
+                        alert('Lütfen puan verin.');
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch('/api/yorumlar', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ ad, mesaj, puan: parseInt(puan) })
+                        });
+
+                        const data = await response.json();
+                        formSonuc.style.color = response.ok ? 'green' : 'red';
+                        formSonuc.textContent = data.message;
+                        if(response.ok) {
+                            yorumFormu.reset();
+                            puanlamaYildizlari.forEach(y => y.classList.remove("dolu"));
+                        }
+                    } catch (error) {
+                        formSonuc.style.color = 'red';
+                        formSonuc.textContent = 'Bir hata oluştu.';
+                    }
+                });
+            }
+
+            const dinamikYorumAlani = document.getElementById('dinamik-yorum-alani');
+            const yorumMetni = document.getElementById('yorum-metni');
+            const yorumSahibi = document.getElementById('yorum-sahibi');
+            const puanOzeti = document.querySelector('.puanlama-ozeti .puan');
+            const yildizlarDolu = document.querySelector('.yildizlar-dolu');
+            const yorumSayac = document.getElementById('yorum-sayac');
+            let onaylanmisYorumlar = [];
+            let mevcutYorumIndex = 0;
+
+            async function fetchApprovedComments() {
+                try {
+                    const response = await fetch('/api/yorumlar');
+                    const data = await response.json();
+                    onaylanmisYorumlar = data.yorumlar || [];
+                    if (onaylanmisYorumlar.length > 0) {
+                        updateCommentStats();
+                        showNextComment();
+                        setInterval(showNextComment, 6000);
+                    }
+                } catch (error) {
+                    console.error('Yorumlar alınamadı:', error);
+                }
+            }
+            
+            function showNextComment() {
+                if (onaylanmisYorumlar.length === 0) return;
+                const yorum = onaylanmisYorumlar[mevcutYorumIndex];
+                dinamikYorumAlani.classList.add('gizli');
+                setTimeout(() => {
+                    yorumMetni.textContent = `"${yorum.mesaj}"`;
+                    yorumSahibi.textContent = `- ${yorum.ad}`;
+                    dinamikYorumAlani.classList.remove('gizli');
+                }, 400);
+                mevcutYorumIndex = (mevcutYorumIndex + 1) % onaylanmisYorumlar.length;
+            }
+
+            function updateCommentStats() {
+                const toplamPuan = onaylanmisYorumlar.reduce((acc, curr) => acc + curr.puan, 0);
+                const ortalamaPuan = (toplamPuan / onaylanmisYorumlar.length).toFixed(1);
+                puanOzeti.textContent = ortalamaPuan;
+                yildizlarDolu.style.width = `${(ortalamaPuan / 5) * 100}%`;
+                yorumSayac.textContent = `(${onaylanmisYorumlar.length} Yorum)`;
+            }
+            fetchApprovedComments();
+            
+            const socket = io();
             const yardimciButon = document.getElementById('yardimci-buton');
             const yardimciEkrani = document.getElementById('yardimci-ekrani');
             const yardimciKapat = document.getElementById('yardimci-kapat');
@@ -382,7 +437,7 @@
             }
             
             socket.on('chat history', (history) => {
-                mesajlarAlani.innerHTML = '';
+                mesajlarAlani.innerHTML = '<div class="mesaj gelen">Merhaba! Size nasıl yardımcı olabiliriz?</div>';
                 history.forEach(msg => addMessage(msg.text, msg.from === 'user' ? 'giden' : 'gelen'));
                 destekFormu.classList.remove('disabled');
             });
@@ -402,14 +457,18 @@
 
             socket.on('operator reply', (message) => {
                 addMessage(message, 'gelen');
-});
+            });
 
             socket.on('chat ended by operator', () => {
                 mesajlarAlani.innerHTML = '<div class="chat-ended-message">Destek temsilcisi görüşmeyi sonlandırdı. Yeni bir mesaj yazarak tekrar sohbet başlatabilirsiniz.</div>';
-                destekFormu.classList.add('disabled');
+                destekFormu.classList.remove('disabled');
             });
 
-            // MOBİL MENÜ SCRİPT'İ
+            socket.on('chat history locked', () => {
+                mesajlarAlani.innerHTML = '<div class="chat-ended-message">Daha önceki görüşmeniz bir operatör tarafından sonlandırıldı. Yeni bir mesaj yazarak tekrar sohbet başlatabilirsiniz.</div>';
+                destekFormu.classList.remove('disabled');
+            });
+
             const menuToggle = document.getElementById('menu-toggle');
             const mainNav = document.getElementById('main-nav');
             const navLinks = mainNav.querySelectorAll('a');

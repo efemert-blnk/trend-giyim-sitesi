@@ -25,13 +25,14 @@ db.connect(err => {
 app.use(bodyParser.json());
 app.use(cors());
 
-// Giriş (Login) API ve Token Ayarları
+// Giriş (Login) API - Token Üretiyor
 const OPERATOR_PASSWORD = process.env.OPERATOR_PASSWORD || "12345";
 const JWT_SECRET = process.env.JWT_SECRET || 'cok-gizli-bir-anahtar';
 
 app.post('/login', (req, res) => {
     const { password } = req.body;
     if (password === OPERATOR_PASSWORD) {
+        // Kullanıcıya 8 saat geçerli bir "giriş bileti" (token) ver
         const token = jwt.sign({ isOperator: true }, JWT_SECRET, { expiresIn: '8h' });
         res.status(200).json({ token });
     } else {
@@ -70,21 +71,38 @@ const createTables = async () => {
         await db.query(`CREATE TABLE IF NOT EXISTS onay_bekleyen_yorumlar (id SERIAL PRIMARY KEY, ad TEXT NOT NULL, mesaj TEXT NOT NULL, puan INTEGER NOT NULL, tarih TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)`);
         await db.query(`CREATE TABLE IF NOT EXISTS hizli_cevaplar (id SERIAL PRIMARY KEY, metin TEXT NOT NULL UNIQUE)`);
         await db.query(`CREATE TABLE IF NOT EXISTS sohbet_gecmisi (id SERIAL PRIMARY KEY, kullanici_id TEXT, gonderen TEXT, mesaj TEXT, tarih TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)`);
-        await db.query(`CREATE TABLE IF NOT EXISTS kullanici_bilgileri (kullanici_id TEXT PRIMARY KEY, isim TEXT)`);
-        
-        const res = await db.query("SELECT COUNT(*) as count FROM hizli_cevaplar");
-        if (res.rows[0].count == 0) {
-            const defaultReplies = ["Merhaba, size nasıl yardımcı olabilirim?", "İlginiz için teşekkür ederiz."];
-            for (const reply of defaultReplies) {
-                await db.query("INSERT INTO hizli_cevaplar (metin) VALUES ($1)", [reply]);
+        await db.query(`CREATE TABLE IF NOT EXISTS kullanici_bilgileri (kullanici_id TEXT PRIMARY KEY, isim TEXT, sohbet_durumu TEXT DEFAULT 'acik')`);
+
+        // Zengin içerik için varsayılan yorumları ekle
+        const yorumRes = await db.query("SELECT COUNT(*) as count FROM yorumlar");
+        if (yorumRes.rows[0].count == 0) {
+            const defaultYorumlar = [
+                { ad: 'Ahmet Y.', mesaj: 'Takım elbisenin kalitesi ve duruşu harika, tam istediğim gibi oldu. Teşekkürler!', puan: 5 },
+                { ad: 'Murat K.', mesaj: 'Çorumdaki en iyi erkek giyim mağazası diyebilirim. Personel çok ilgili.', puan: 5 },
+                { ad: 'Caner B.', mesaj: 'Gömlek ve pantolon aldım, kumaşları çok kaliteli. Fiyatlar da makul.', puan: 4 },
+                { ad: 'Selim T.', mesaj: 'Düğünüm için smokin alışverişi yaptım. Yardımlarınız için minnettarım, sayenizde çok şık oldum.', puan: 5 },
+                { ad: 'Fatih G.', mesaj: 'Ürün çeşitliliği gayet iyi, aradığım her tarzda bir şeyler bulabiliyorum.', puan: 4 },
+                { ad: 'Emre S.', mesaj: 'Online destekten aldığım bilgiyle mağazaya gittim, tam istediğim ürünü hemen buldum.', puan: 5 },
+                { ad: 'Hakan D.', mesaj: 'Spor giyim koleksiyonunuzu çok beğendim, özellikle sweatshirtler harika.', puan: 5 },
+                { ad: 'Ozan A.', mesaj: 'Paça boyu tadilatını hemen ücretsiz bir şekilde hallettiler. Müşteri memnuniyetine önem veriyorlar.', puan: 5 },
+                { ad: 'Volkan C.', mesaj: 'Fiyatlar bir tık daha uygun olabilirdi ama kaliteye diyecek yok.', puan: 4 },
+                { ad: 'Gökhan M.', mesaj: 'Yıllardır değişmeyen adresim. Her zaman güler yüzle karşılanıyorum.', puan: 5 },
+                { ad: 'İsmail E.', mesaj: 'Ceket kalıpları tam üzerime göre. Çok memnun kaldım.', puan: 5 },
+                { ad: 'Uğur Ş.', mesaj: 'Yeni sezon ürünlerini takip ediyorum, her zaman çok şık parçalar getiriyorlar.', puan: 5 }
+            ];
+            const query = 'INSERT INTO yorumlar (ad, mesaj, puan) VALUES ($1, $2, $3)';
+            for (const yorum of defaultYorumlar) {
+                await db.query(query, [yorum.ad, yorum.mesaj, yorum.puan]);
             }
+            console.log("Varsayılan onaylanmış yorumlar eklendi.");
         }
+
     } catch (err) {
-        if (err.code !== '42P07') console.error("Tablo oluşturma hatası:", err.message);
+        if (err.code !== '42P07' && err.code !== '42701') console.error("Tablo oluşturma hatası:", err.message); // Hataları yoksay
     }
 };
 
-// --- YORUM API UÇ NOKTALARI (TAM HALİ) ---
+// YORUM API UÇ NOKTALARI
 app.get('/api/yorumlar', async (req, res) => {
     try {
         const result = await db.query('SELECT * FROM yorumlar ORDER BY tarih DESC');
@@ -101,7 +119,7 @@ app.post('/api/yorumlar', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- YORUM YÖNETİM API'LARI (OPERATÖR İÇİN - TAM HALİ) ---
+// YORUM YÖNETİM API'LARI (OPERATÖR İÇİN)
 app.get('/api/onay-bekleyen-yorumlar', authMiddleware, async (req, res) => {
     try {
         const result = await db.query('SELECT * FROM onay_bekleyen_yorumlar ORDER BY tarih ASC');
@@ -129,7 +147,7 @@ app.delete('/api/onay-bekleyen-yorumlar/:id', authMiddleware, async (req, res) =
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// HIZLI CEVAP API'LARI (TAM HALİ)
+// HIZLI CEVAP API'LARI
 app.get('/api/hizli-cevaplar', authMiddleware, async (req, res) => {
     try {
         const result = await db.query('SELECT * FROM hizli_cevaplar ORDER BY id');
@@ -172,10 +190,14 @@ let conversations = new Map();
 io.on('connection', (socket) => {
     console.log('Yeni bir bağlantı:', socket.id);
     socket.isOperator = false;
+
     const token = socket.handshake.auth.token;
     if (token) {
         jwt.verify(token, JWT_SECRET, (err, decoded) => {
-            if (err || !decoded.isOperator) return;
+            if (err || !decoded.isOperator) {
+                console.log(`Geçersiz token ile bağlantı denemesi: ${socket.id}`);
+                return;
+            }
             socket.isOperator = true;
             console.log(`Doğrulanmış operatör bağlandı: ${socket.id}`);
             socket.join('operators');
@@ -187,18 +209,33 @@ io.on('connection', (socket) => {
         onlineUsers.set(socket.id, userId);
         let convo = conversations.get(userId);
         if (!convo) {
-            const userInfoRes = await db.query("SELECT isim FROM kullanici_bilgileri WHERE kullanici_id = $1", [userId]);
+            const userInfoRes = await db.query("SELECT isim, sohbet_durumu FROM kullanici_bilgileri WHERE kullanici_id = $1", [userId]);
             const historyRes = await db.query("SELECT gonderen, mesaj FROM sohbet_gecmisi WHERE kullanici_id = $1 ORDER BY tarih ASC", [userId]);
-            convo = { id: userId, name: userInfoRes.rows[0]?.isim || `Kullanıcı #${userId.substring(0, 4)}`, messages: historyRes.rows.map(r => ({ from: r.gonderen, text: r.mesaj })), lastMessage: "Yeni sohbet başlattı." };
+            convo = {
+                id: userId,
+                name: userInfoRes.rows[0]?.isim || `Kullanıcı #${userId.substring(0, 4)}`,
+                messages: historyRes.rows.map(r => ({ from: r.gonderen, text: r.mesaj })),
+                lastMessage: "Sohbete bağlandı.",
+                status: userInfoRes.rows[0]?.sohbet_durumu || 'acik'
+            };
             conversations.set(userId, convo);
         }
-        socket.emit('chat history', convo.messages);
+        
+        if (convo.status === 'kapali') {
+            socket.emit('chat history locked');
+        } else {
+            socket.emit('chat history', convo.messages);
+        }
         io.to('operators').emit('update conversation', convo);
     });
 
     socket.on('chat message from user', async ({ userId, message }) => {
         const convo = conversations.get(userId);
         if (convo) {
+            if (convo.status === 'kapali') {
+                convo.status = 'acik';
+                await db.query("UPDATE kullanici_bilgileri SET sohbet_durumu = 'acik' WHERE kullanici_id = $1", [userId]);
+            }
             convo.messages.push({ from: 'user', text: message });
             convo.lastMessage = message;
             await db.query("INSERT INTO sohbet_gecmisi (kullanici_id, gonderen, mesaj) VALUES ($1, $2, $3)", [userId, 'user', message]);
@@ -230,10 +267,16 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('end chat', ({ userId }) => {
+    socket.on('end chat', async ({ userId }) => {
         if (socket.isOperator) {
+            const convo = conversations.get(userId);
+            if (convo) {
+                convo.status = 'kapali';
+                await db.query("INSERT INTO kullanici_bilgileri (kullanici_id, sohbet_durumu) VALUES ($1, 'kapali') ON CONFLICT (kullanici_id) DO UPDATE SET sohbet_durumu = 'kapali'", [userId]);
+            }
             const targetSocketId = [...onlineUsers.entries()].find(([, uid]) => uid === userId)?.[0];
             if (targetSocketId) io.to(targetSocketId).emit('chat ended by operator');
+            io.to('operators').emit('update conversation', convo);
         }
     });
 

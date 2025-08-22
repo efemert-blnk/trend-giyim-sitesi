@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f4f8; }
-        .login-container { background-color: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
+        .login-container { background-color: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; width: 300px; }
         h2 { color: #333; }
         input { width: 100%; padding: 12px; margin-top: 20px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
         button { width: 100%; padding: 12px; margin-top: 20px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; }
@@ -25,10 +25,16 @@
     </div>
 
     <script>
+        // Sayfa yüklenirken token varsa direkt panele yönlendirmeyi dene
+        if (localStorage.getItem('authToken')) {
+            window.location.href = '/operator.html';
+        }
+
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const password = document.getElementById('password').value;
             const errorMessage = document.getElementById('error-message');
+            errorMessage.style.display = 'none';
 
             try {
                 const response = await fetch('/login', {
@@ -38,7 +44,9 @@
                 });
 
                 if (response.ok) {
-                    window.location.href = '/operator.html'; // Giriş başarılı, panele yönlendir
+                    const data = await response.json();
+                    localStorage.setItem('authToken', data.token); // "Giriş Biletini" tarayıcıya kaydet
+                    window.location.href = '/operator.html'; // Panele yönlendir
                 } else {
                     errorMessage.style.display = 'block';
                 }

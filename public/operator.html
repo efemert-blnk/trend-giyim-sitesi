@@ -88,11 +88,24 @@
 
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script>
-        // BU KISIM ÇOK ÖNEMLİ
+        const token = localStorage.getItem('authToken');
+
+        if (!token) {
+            window.location.href = '/login.html';
+        }
+
         const socket = io({
-            withCredentials: true 
+            auth: { token }
         });
         
+        const fetchWithAuth = (url, options = {}) => {
+            options.headers = {
+                ...options.headers,
+                'Authorization': `Bearer ${token}`
+            };
+            return fetch(url, options);
+        };
+
         const usersList = document.getElementById('users');
         const chatHeader = document.getElementById('chat-header');
         const chatUsername = document.getElementById('chat-username');
@@ -123,9 +136,12 @@
 
         async function fetchAndRenderQuickReplies() {
             try {
-                const response = await fetch('/api/hizli-cevaplar');
+                const response = await fetchWithAuth('/api/hizli-cevaplar');
                 if(!response.ok) {
-                    if(response.status === 401 || response.status === 403) window.location.href = '/login.html';
+                    if(response.status === 401 || response.status === 403) {
+                         localStorage.removeItem('authToken');
+                         window.location.href = '/login.html';
+                    }
                     return;
                 }
                 quickReplies = await response.json();
@@ -158,7 +174,7 @@
             const text = newReplyInput.value.trim();
             if (!text) return;
             try {
-                const response = await fetch('/api/hizli-cevaplar', {
+                const response = await fetchWithAuth('/api/hizli-cevaplar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ metin: text })
@@ -177,7 +193,7 @@
             const oldText = e.currentTarget.dataset.text;
             const newText = prompt("Yeni metni girin:", oldText);
             if (newText && newText.trim() && newText.trim() !== oldText) {
-                await fetch(`/api/hizli-cevaplar/${id}`, {
+                await fetchWithAuth(`/api/hizli-cevaplar/${id}`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ metin: newText.trim() })
                 });
                 fetchAndRenderQuickReplies();
@@ -187,7 +203,7 @@
         async function handleDeleteReply(e) {
             const id = e.currentTarget.dataset.id;
             if (confirm("Bu cevabı silmek istediğinizden emin misiniz?")) {
-                await fetch(`/api/hizli-cevaplar/${id}`, { method: 'DELETE' });
+                await fetchWithAuth(`/api/hizli-cevaplar/${id}`, { method: 'DELETE' });
                 fetchAndRenderQuickReplies();
             }
         }
@@ -275,7 +291,13 @@
 
         socket.on('connect', () => {
             console.log('Sunucuya bağlandı!');
-            socket.emit('register as operator');
+        });
+        
+        socket.on('connect_error', (err) => {
+            if (err.message === "Authentication error") {
+                localStorage.removeItem('authToken');
+                window.location.href = '/login.html';
+            }
         });
 
         fetchAndRenderQuickReplies();

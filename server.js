@@ -72,14 +72,13 @@ const createTables = async () => {
         await db.query(`CREATE TABLE IF NOT EXISTS sohbet_gecmisi (id SERIAL PRIMARY KEY, kullanici_id TEXT, gonderen TEXT, mesaj TEXT, tarih TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)`);
         await db.query(`CREATE TABLE IF NOT EXISTS kullanici_bilgileri (kullanici_id TEXT PRIMARY KEY, isim TEXT)`);
         
-        // Session tablosuna artık ihtiyacımız yok, bu yüzden oluşturmuyoruz.
-        
         const res = await db.query("SELECT COUNT(*) as count FROM hizli_cevaplar");
         if (res.rows[0].count == 0) {
             const defaultReplies = ["Merhaba, size nasıl yardımcı olabilirim?", "İlginiz için teşekkür ederiz."];
             for (const reply of defaultReplies) {
                 await db.query("INSERT INTO hizli_cevaplar (metin) VALUES ($1)", [reply]);
             }
+            console.log("Varsayılan hızlı cevaplar eklendi.");
         }
     } catch (err) {
         if (err.code !== '42P07') console.error("Tablo oluşturma hatası:", err.message);
@@ -106,14 +105,16 @@ app.put('/api/hizli-cevaplar/:id', authMiddleware, async (req, res) => {
     try {
         const { metin } = req.body;
         const result = await db.query('UPDATE hizli_cevaplar SET metin = $1 WHERE id = $2', [metin.trim(), req.params.id]);
-        res.status(200).json({ message: 'Güncellendi.' });
+        if (result.rowCount > 0) res.status(200).json({ message: 'Güncellendi.' });
+        else res.status(404).json({ error: 'Cevap bulunamadı.'});
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.delete('/api/hizli-cevaplar/:id', authMiddleware, async (req, res) => {
     try {
-        await db.query('DELETE FROM hizli_cevaplar WHERE id = $1', [req.params.id]);
-        res.status(200).json({ message: 'Silindi.' });
+        const result = await db.query('DELETE FROM hizli_cevaplar WHERE id = $1', [req.params.id]);
+        if (result.rowCount > 0) res.status(200).json({ message: 'Silindi.' });
+        else res.status(404).json({ error: 'Cevap bulunamadı.'});
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -121,30 +122,29 @@ app.delete('/api/hizli-cevaplar/:id', authMiddleware, async (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*", credentials: true } });
 
-// Socket.IO için Token Doğrulama Middleware'i
-io.use((socket, next) => {
-    const token = socket.handshake.auth.token;
-    if (token) {
-        jwt.verify(token, JWT_SECRET, (err, decoded) => {
-            if (err || !decoded.isOperator) {
-                return next(new Error('Authentication error'));
-            }
-            socket.decoded = decoded; // Doğrulanmış bilgiyi sokete ekle
-            next();
-        });
-    } else {
-        next(new Error('Authentication error'));
-    }
-});
-
 let onlineUsers = new Map();
 let conversations = new Map();
 
 io.on('connection', (socket) => {
-    console.log(`Doğrulanmış operatör bağlandı: ${socket.id}`);
-    socket.join('operators');
-    socket.emit('all conversations', Array.from(conversations.values()));
-    
+    console.log('Yeni bir bağlantı:', socket.id);
+    socket.isOperator = false; // Varsayılan olarak müşteri
+
+    // Operatör mü diye token ile kontrol et
+    const token = socket.handshake.auth.token;
+    if (token) {
+        jwt.verify(token, JWT_SECRET, (err, decoded) => {
+            if (err || !decoded.isOperator) {
+                console.log(`Geçersiz token ile bağlantı denemesi: ${socket.id}`);
+                return;
+            }
+            socket.isOperator = true;
+            console.log(`Doğrulanmış operatör bağlandı: ${socket.id}`);
+            socket.join('operators');
+            socket.emit('all conversations', Array.from(conversations.values()));
+        });
+    }
+
+    // Müşteri olayları
     socket.on('user session connect', async ({ userId }) => {
         onlineUsers.set(socket.id, userId);
         let convo = conversations.get(userId);
@@ -168,29 +168,36 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Operatör olayları
     socket.on('chat message from operator', async ({ targetUserId, message }) => {
-        const convo = conversations.get(targetUserId);
-        if (convo) {
-            convo.messages.push({ from: 'operator', text: message });
-            await db.query("INSERT INTO sohbet_gecmisi (kullanici_id, gonderen, mesaj) VALUES ($1, $2, $3)", [targetUserId, 'operator', message]);
-            const targetSocketId = [...onlineUsers.entries()].find(([, uid]) => uid === targetUserId)?.[0];
-            if (targetSocketId) io.to(targetSocketId).emit('operator reply', message);
-            io.to('operators').emit('update conversation', convo);
+        if (socket.isOperator) {
+            const convo = conversations.get(targetUserId);
+            if (convo) {
+                convo.messages.push({ from: 'operator', text: message });
+                await db.query("INSERT INTO sohbet_gecmisi (kullanici_id, gonderen, mesaj) VALUES ($1, $2, $3)", [targetUserId, 'operator', message]);
+                const targetSocketId = [...onlineUsers.entries()].find(([, uid]) => uid === targetUserId)?.[0];
+                if (targetSocketId) io.to(targetSocketId).emit('operator reply', message);
+                io.to('operators').emit('update conversation', convo);
+            }
         }
     });
     
     socket.on('update user name', async ({ userId, newName }) => {
-        const convo = conversations.get(userId);
-        if (convo) {
-            convo.name = newName;
-            await db.query("INSERT INTO kullanici_bilgileri (kullanici_id, isim) VALUES ($1, $2) ON CONFLICT (kullanici_id) DO UPDATE SET isim = $2", [userId, newName]);
-            io.to('operators').emit('update conversation', convo);
+        if (socket.isOperator) {
+            const convo = conversations.get(userId);
+            if (convo) {
+                convo.name = newName;
+                await db.query("INSERT INTO kullanici_bilgileri (kullanici_id, isim) VALUES ($1, $2) ON CONFLICT (kullanici_id) DO UPDATE SET isim = $2", [userId, newName]);
+                io.to('operators').emit('update conversation', convo);
+            }
         }
     });
 
     socket.on('end chat', ({ userId }) => {
-        const targetSocketId = [...onlineUsers.entries()].find(([, uid]) => uid === userId)?.[0];
-        if (targetSocketId) io.to(targetSocketId).emit('chat ended by operator');
+        if (socket.isOperator) {
+            const targetSocketId = [...onlineUsers.entries()].find(([, uid]) => uid === userId)?.[0];
+            if (targetSocketId) io.to(targetSocketId).emit('chat ended by operator');
+        }
     });
 
     socket.on('disconnect', () => {

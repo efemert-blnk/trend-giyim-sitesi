@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
     
     <style>
-        :root{--ana-renk:#252a34;--ikinci-renk:#bfa071;--arkaplan-renk:#ffffff;--yazi-renk:#333;--kart-arkaplan:#fff;--golge-renk:rgba(0,0,0,0.07);--kenarlik-renk:#e9e9e9;--baslik-font:'Playfair Display',serif;--govde-font:'Lato',sans-serif}
+        :root{--ana-renk:#252a34;--ikinci-renk:#bfa071;--arkaplan-renk:#ffffff;--yazi-renk:#333;--kart-arkaplan:#fff;--golge-renk:rgba(0,0,0,0.07);--kenarlik-renk:#e9e9e9;--baslik-font:'Playfair+Display',serif;--govde-font:'Lato',sans-serif}
         body.koyu-tema{--ana-renk:#121212;--ikinci-renk:#bfa071;--arkaplan-renk:#181818;--yazi-renk:#e0e0e0;--kart-arkaplan:#1e1e1e;--golge-renk:rgba(0,0,0,0.2);--kenarlik-renk:#2c2c2c}
         body{font-family:var(--govde-font);margin:0;padding:0;line-height:1.7;color:var(--yazi-renk);background-color:var(--arkaplan-renk);transition:background-color .3s,color .3s;-webkit-font-smoothing:antialiased}
         html{scroll-behavior:smooth}
@@ -81,7 +81,6 @@
         .firma-karti:hover{opacity:1}
         footer{background:var(--ana-renk);color:#a0a0a0;text-align:center;padding:30px 0;transition:background-color .3s;border-top:1px solid var(--kenarlik-renk)}
         @media (max-width:768px){header .container{flex-direction:column}header nav{flex-direction:column;width:100%}header nav ul{padding-top:15px;text-align:center}header nav ul li{display:block;padding:5px 0}#tema-degistirici{margin-top:10px}#hero h2{font-size:3em}section{padding:80px 0}section h3{font-size:2.2em}}
-        /* CANLI DESTEK STİLLERİ */
         #yardimci-buton{position:fixed;bottom:25px;right:25px;background-color:var(--ikinci-renk);color:#fff;width:60px;height:60px;border-radius:50%;display:flex;justify-content:center;align-items:center;cursor:pointer;box-shadow:0 5px 15px rgba(0,0,0,0.2);z-index:1001;transition:transform .3s}
         #yardimci-buton:hover{transform:scale(1.1)}
         #yardimci-ekrani{position:fixed;bottom:100px;right:25px;width:90%;max-width:350px;height:450px;background-color:var(--kart-arkaplan);border-radius:10px;box-shadow:0 10px 30px var(--golge-renk);z-index:1001;display:flex;flex-direction:column;transition:opacity .3s,transform .3s;transform-origin:bottom right}
@@ -221,7 +220,7 @@
                          <li><strong>Telefon:</strong> <a href="tel:05432575650">0543 257 56 50</a></li>
                          <li><strong>E-posta:</strong> <a href="mailto:trendcollection@hotmail.com">trendcollection@hotmail.com</a></li>
                      </ul>
-                     <a href="https://www.google.com/maps/place/Büyük+Zafer+Çarşısı" target="_blank" class="cta-button">Google Haritalar'da Görüntüle</a>
+                     <a href="http://googleusercontent.com/maps.google.com/3" target="_blank" class="cta-button">Google Haritalar'da Görüntüle</a>
                 </div>
             </div>
         </section>
@@ -328,7 +327,9 @@
                 }
             });
 
-            socket.on('operator reply', (message) => addMessage(message, 'gelen'));
+            socket.on('operator reply', (message) => {
+                addMessage(message, 'gelen');
+            });
 
             socket.on('chat ended by operator', () => {
                 mesajlarAlani.innerHTML = '<div class="chat-ended-message">Destek temsilcisi görüşmeyi sonlandırdı. Yeni bir mesaj yazarak tekrar sohbet başlatabilirsiniz.</div>';

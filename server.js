@@ -32,7 +32,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'cok-gizli-bir-anahtar';
 app.post('/login', (req, res) => {
     const { password } = req.body;
     if (password === OPERATOR_PASSWORD) {
-        // Kullanıcıya 8 saat geçerli bir "giriş bileti" (token) ver
         const token = jwt.sign({ isOperator: true }, JWT_SECRET, { expiresIn: '8h' });
         res.status(200).json({ token });
     } else {
@@ -98,7 +97,7 @@ const createTables = async () => {
         }
 
     } catch (err) {
-        if (err.code !== '42P07' && err.code !== '42701') console.error("Tablo oluşturma hatası:", err.message); // Hataları yoksay
+        if (err.code !== '42P07' && err.code !== '42701') console.error("Tablo oluşturma hatası:", err.message);
     }
 };
 
@@ -211,13 +210,7 @@ io.on('connection', (socket) => {
         if (!convo) {
             const userInfoRes = await db.query("SELECT isim, sohbet_durumu FROM kullanici_bilgileri WHERE kullanici_id = $1", [userId]);
             const historyRes = await db.query("SELECT gonderen, mesaj FROM sohbet_gecmisi WHERE kullanici_id = $1 ORDER BY tarih ASC", [userId]);
-            convo = {
-                id: userId,
-                name: userInfoRes.rows[0]?.isim || `Kullanıcı #${userId.substring(0, 4)}`,
-                messages: historyRes.rows.map(r => ({ from: r.gonderen, text: r.mesaj })),
-                lastMessage: "Sohbete bağlandı.",
-                status: userInfoRes.rows[0]?.sohbet_durumu || 'acik'
-            };
+            convo = { id: userId, name: userInfoRes.rows[0]?.isim || `Kullanıcı #${userId.substring(0, 4)}`, messages: historyRes.rows.map(r => ({ from: r.gonderen, text: r.mesaj })), lastMessage: "Sohbete bağlandı.", status: userInfoRes.rows[0]?.sohbet_durumu || 'acik' };
             conversations.set(userId, convo);
         }
         

@@ -1,74 +1,91 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
+const { Client } = require('pg'); // SQLite yerine pg'yi kullanıyoruz
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000; // Render'ın portu için ayar
 
 app.use(bodyParser.json());
 app.use(cors());
 
-// Veritabanı bağlantısı ve tablo oluşturma
-const db = new sqlite3.Database('./destek.db', (err) => {
-    if (err) return console.error('Veritabanı hatası:', err.message);
-    
-    console.log('destek.db veritabanına başarıyla bağlandı.');
-    db.serialize(() => {
-        db.run(`CREATE TABLE IF NOT EXISTS hizli_cevaplar (id INTEGER PRIMARY KEY, metin TEXT NOT NULL UNIQUE)`);
-        db.run(`CREATE TABLE IF NOT EXISTS sohbet_gecmisi (id INTEGER PRIMARY KEY, kullanici_id TEXT, gonderen TEXT, mesaj TEXT, tarih DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-        db.run(`CREATE TABLE IF NOT EXISTS kullanici_bilgileri (kullanici_id TEXT PRIMARY KEY, isim TEXT)`);
+// PostgreSQL veritabanı bağlantısı
+// Render bu URL'yi otomatik olarak "Environment Variable" olarak sağlayacak
+const db = new Client({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
+    }
+});
 
-        // Varsayılan hızlı cevapları ekle
-        db.get("SELECT COUNT(*) as count FROM hizli_cevaplar", (err, row) => {
-            if (row.count === 0) {
-                const defaultReplies = [
-                    "Merhaba, size nasıl yardımcı olabilirim?", "İlginiz için teşekkür ederiz.", "Konuyu ilgili departmana iletiyorum, lütfen bekleyiniz.", "Farklı bir konuda yardımcı olabilir miyim?", "Ürünlerimiz hakkında detaylı bilgiye web sitemizden ulaşabilirsiniz.", "Stoklarımız güncellenmektedir, takipte kalınız."
-                ];
-                const stmt = db.prepare("INSERT INTO hizli_cevaplar (metin) VALUES (?)");
-                defaultReplies.forEach(reply => stmt.run(reply));
-                stmt.finalize();
+db.connect(err => {
+    if (err) {
+        return console.error('Veritabanına bağlanılamadı', err.stack);
+    }
+    console.log('PostgreSQL veritabanına başarıyla bağlandı.');
+    // Sunucu başlangıcında tabloları oluştur
+    createTables();
+});
+
+const createTables = async () => {
+    try {
+        await db.query(`CREATE TABLE IF NOT EXISTS hizli_cevaplar (id SERIAL PRIMARY KEY, metin TEXT NOT NULL UNIQUE)`);
+        await db.query(`CREATE TABLE IF NOT EXISTS sohbet_gecmisi (id SERIAL PRIMARY KEY, kullanici_id TEXT, gonderen TEXT, mesaj TEXT, tarih TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)`);
+        await db.query(`CREATE TABLE IF NOT EXISTS kullanici_bilgileri (kullanici_id TEXT PRIMARY KEY, isim TEXT)`);
+
+        const res = await db.query("SELECT COUNT(*) as count FROM hizli_cevaplar");
+        if (res.rows[0].count == 0) {
+            const defaultReplies = [
+                "Merhaba, size nasıl yardımcı olabilirim?", "İlginiz için teşekkür ederiz.", "Konuyu ilgili departmana iletiyorum, lütfen bekleyiniz.", "Farklı bir konuda yardımcı olabilir miyim?", "Ürünlerimiz hakkında detaylı bilgiye web sitemizden ulaşabilirsiniz.", "Stoklarımız güncellenmektedir, takipte kalınız."
+            ];
+            for (const reply of defaultReplies) {
+                await db.query("INSERT INTO hizli_cevaplar (metin) VALUES ($1)", [reply]);
             }
-        });
-    });
+            console.log("Varsayılan hızlı cevaplar eklendi.");
+        }
+    } catch (err) {
+        console.error("Tablo oluşturma hatası:", err);
+    }
+};
+
+// Hızlı Cevaplar API (CRUD) - PostgreSQL uyumlu hale getirildi
+app.get('/api/hizli-cevaplar', async (req, res) => {
+    try {
+        const result = await db.query('SELECT * FROM hizli_cevaplar ORDER BY id');
+        res.json(result.rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.post('/api/hizli-cevaplar', async (req, res) => {
+    try {
+        const { metin } = req.body;
+        if (!metin) return res.status(400).json({ error: 'Metin boş olamaz.' });
+        const result = await db.query('INSERT INTO hizli_cevaplar (metin) VALUES ($1) RETURNING id, metin', [metin.trim()]);
+        res.status(201).json(result.rows[0]);
+    } catch (err) { res.status(err.code === '23505' ? 409 : 500).json({ error: 'Bu cevap zaten mevcut.' }); }
+});
+app.put('/api/hizli-cevaplar/:id', async (req, res) => {
+    try {
+        const { metin } = req.body;
+        if (!metin) return res.status(400).json({ error: 'Metin boş olamaz.' });
+        const result = await db.query('UPDATE hizli_cevaplar SET metin = $1 WHERE id = $2', [metin.trim(), req.params.id]);
+        if (result.rowCount === 0) return res.status(404).json({ error: 'Cevap bulunamadı.' });
+        res.status(200).json({ message: 'Güncellendi.' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.delete('/api/hizli-cevaplar/:id', async (req, res) => {
+    try {
+        const result = await db.query('DELETE FROM hizli_cevaplar WHERE id = $1', [req.params.id]);
+        if (result.rowCount === 0) return res.status(404).json({ error: 'Cevap bulunamadı.' });
+        res.status(200).json({ message: 'Silindi.' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Hızlı Cevaplar API (CRUD)
-app.get('/api/hizli-cevaplar', (req, res) => {
-    db.all('SELECT * FROM hizli_cevaplar ORDER BY id', [], (err, rows) => res.status(err ? 500 : 200).json(err ? { error: err.message } : rows));
-});
-app.post('/api/hizli-cevaplar', (req, res) => {
-    const { metin } = req.body;
-    if (!metin) return res.status(400).json({ error: 'Metin boş olamaz.' });
-    db.run('INSERT INTO hizli_cevaplar (metin) VALUES (?)', [metin.trim()], function(err) {
-        if (err) return res.status(err.code === 'SQLITE_CONSTRAINT' ? 409 : 500).json({ error: 'Bu cevap zaten mevcut.' });
-        res.status(201).json({ id: this.lastID, metin: metin.trim() });
-    });
-});
-// YENİ EKLENDİ: Hızlı Cevap Düzenleme
-app.put('/api/hizli-cevaplar/:id', (req, res) => {
-    const { metin } = req.body;
-    if (!metin) return res.status(400).json({ error: 'Metin boş olamaz.' });
-    db.run('UPDATE hizli_cevaplar SET metin = ? WHERE id = ?', [metin.trim(), req.params.id], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        if (this.changes === 0) return res.status(404).json({ error: 'Cevap bulunamadı.' });
-        res.status(200).json({ message: 'Güncellendi.' });
-    });
-});
-// YENİ EKLENDİ: Hızlı Cevap Silme
-app.delete('/api/hizli-cevaplar/:id', (req, res) => {
-    db.run('DELETE FROM hizli_cevaplar WHERE id = ?', [req.params.id], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        if (this.changes === 0) return res.status(404).json({ error: 'Cevap bulunamadı.' });
-        res.status(200).json({ message: 'Silindi.' });
-    });
-});
 
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
-
+// ... (Socket.IO kodları öncekiyle aynı, veritabanı sorguları artık db.query ile çalışacak)
 // Canlı Destek Mantığı
 let onlineUsers = new Map();
 let conversations = new Map();
@@ -84,15 +101,14 @@ io.on('connection', (socket) => {
         let convo = conversations.get(userId);
         
         if (!convo) {
-            // Kullanıcı bilgilerini ve geçmişini veritabanından çek
-            const userInfo = await new Promise(resolve => db.get("SELECT isim FROM kullanici_bilgileri WHERE kullanici_id = ?", [userId], (err, row) => resolve(row)));
-            const history = await new Promise(resolve => db.all("SELECT gonderen, mesaj FROM sohbet_gecmisi WHERE kullanici_id = ? ORDER BY tarih ASC", [userId], (err, rows) => resolve(rows || [])));
+            const userInfoRes = await db.query("SELECT isim FROM kullanici_bilgileri WHERE kullanici_id = $1", [userId]);
+            const historyRes = await db.query("SELECT gonderen, mesaj FROM sohbet_gecmisi WHERE kullanici_id = $1 ORDER BY tarih ASC", [userId]);
             
             convo = {
                 id: userId,
-                name: userInfo?.isim || `Kullanıcı #${userId.substring(0, 4)}`,
-                messages: history.map(r => ({ from: r.gonderen, text: r.mesaj })),
-                lastMessage: history.length > 0 ? history[history.length - 1].mesaj : "Yeni sohbet başlattı."
+                name: userInfoRes.rows[0]?.isim || `Kullanıcı #${userId.substring(0, 4)}`,
+                messages: historyRes.rows.map(r => ({ from: r.gonderen, text: r.mesaj })),
+                lastMessage: historyRes.rows.length > 0 ? historyRes.rows[historyRes.rows.length - 1].mesaj : "Yeni sohbet başlattı."
             };
             conversations.set(userId, convo);
         }
@@ -101,50 +117,42 @@ io.on('connection', (socket) => {
         io.to('operators').emit('update conversation', convo);
     });
 
-    socket.on('chat message from user', ({ userId, message }) => {
+    socket.on('chat message from user', async ({ userId, message }) => {
         const convo = conversations.get(userId);
         if (convo) {
-            const msgData = { from: 'user', text: message };
-            convo.messages.push(msgData);
+            convo.messages.push({ from: 'user', text: message });
             convo.lastMessage = message;
-            db.run("INSERT INTO sohbet_gecmisi (kullanici_id, gonderen, mesaj) VALUES (?, ?, ?)", [userId, 'user', message]);
+            await db.query("INSERT INTO sohbet_gecmisi (kullanici_id, gonderen, mesaj) VALUES ($1, $2, $3)", [userId, 'user', message]);
             io.to('operators').emit('update conversation', convo);
         }
     });
 
-    socket.on('chat message from operator', ({ targetUserId, message }) => {
+    socket.on('chat message from operator', async ({ targetUserId, message }) => {
         const convo = conversations.get(targetUserId);
         if (convo) {
             convo.messages.push({ from: 'operator', text: message });
-            db.run("INSERT INTO sohbet_gecmisi (kullanici_id, gonderen, mesaj) VALUES (?, ?, ?)", [targetUserId, 'operator', message]);
+            await db.query("INSERT INTO sohbet_gecmisi (kullanici_id, gonderen, mesaj) VALUES ($1, $2, $3)", [targetUserId, 'operator', message]);
             const targetSocketId = [...onlineUsers.entries()].find(([, uid]) => uid === targetUserId)?.[0];
             if (targetSocketId) io.to(targetSocketId).emit('operator reply', message);
             io.to('operators').emit('update conversation', convo);
         }
     });
     
-    // YENİ EKLENDİ: Kullanıcı Adını Güncelleme
-    socket.on('update user name', ({ userId, newName }) => {
+    socket.on('update user name', async ({ userId, newName }) => {
         const convo = conversations.get(userId);
         if (convo) {
             convo.name = newName;
-            db.run("INSERT OR REPLACE INTO kullanici_bilgileri (kullanici_id, isim) VALUES (?, ?)", [userId, newName]);
+            await db.query("INSERT INTO kullanici_bilgileri (kullanici_id, isim) VALUES ($1, $2) ON CONFLICT (kullanici_id) DO UPDATE SET isim = $2", [userId, newName]);
             io.to('operators').emit('update conversation', convo);
         }
     });
 
-    // YENİ EKLENDİ: Görüşmeyi Bitirme
     socket.on('end chat', ({ userId }) => {
         const targetSocketId = [...onlineUsers.entries()].find(([, uid]) => uid === userId)?.[0];
-        if (targetSocketId) {
-            io.to(targetSocketId).emit('chat ended by operator');
-        }
+        if (targetSocketId) io.to(targetSocketId).emit('chat ended by operator');
     });
 
-    socket.on('disconnect', () => {
-        onlineUsers.delete(socket.id);
-        socket.leave('operators');
-    });
+    socket.on('disconnect', () => { onlineUsers.delete(socket.id); socket.leave('operators'); });
 });
 
 server.listen(port, () => console.log(`Backend sunucusu http://localhost:${port} adresinde çalışıyor.`));

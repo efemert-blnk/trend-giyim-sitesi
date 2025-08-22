@@ -25,7 +25,7 @@ db.connect(err => {
 app.use(bodyParser.json());
 app.use(cors());
 
-// Giriş (Login) API - Token Üretiyor
+// Giriş (Login) API ve Token Ayarları
 const OPERATOR_PASSWORD = process.env.OPERATOR_PASSWORD || "12345";
 const JWT_SECRET = process.env.JWT_SECRET || 'cok-gizli-bir-anahtar';
 
@@ -78,14 +78,13 @@ const createTables = async () => {
             for (const reply of defaultReplies) {
                 await db.query("INSERT INTO hizli_cevaplar (metin) VALUES ($1)", [reply]);
             }
-            console.log("Varsayılan hızlı cevaplar eklendi.");
         }
     } catch (err) {
         if (err.code !== '42P07') console.error("Tablo oluşturma hatası:", err.message);
     }
 };
 
-// YORUM API UÇ NOKTALARI
+// --- YORUM API UÇ NOKTALARI (TAM HALİ) ---
 app.get('/api/yorumlar', async (req, res) => {
     try {
         const result = await db.query('SELECT * FROM yorumlar ORDER BY tarih DESC');
@@ -98,11 +97,11 @@ app.post('/api/yorumlar', async (req, res) => {
         const { ad, mesaj, puan } = req.body;
         if (!ad || !mesaj || !puan) return res.status(400).json({ error: 'Tüm alanlar zorunludur.' });
         await db.query('INSERT INTO onay_bekleyen_yorumlar (ad, mesaj, puan) VALUES ($1, $2, $3)', [ad, mesaj, puan]);
-        res.status(201).json({ message: 'Yorumunuz onaya gönderildi.' });
+        res.status(201).json({ message: 'Yorumunuz onaya gönderildi. Teşekkür ederiz!' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// YORUM YÖNETİM API'LARI (OPERATÖR İÇİN)
+// --- YORUM YÖNETİM API'LARI (OPERATÖR İÇİN - TAM HALİ) ---
 app.get('/api/onay-bekleyen-yorumlar', authMiddleware, async (req, res) => {
     try {
         const result = await db.query('SELECT * FROM onay_bekleyen_yorumlar ORDER BY tarih ASC');
@@ -130,7 +129,7 @@ app.delete('/api/onay-bekleyen-yorumlar/:id', authMiddleware, async (req, res) =
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// HIZLI CEVAP API'LARI
+// HIZLI CEVAP API'LARI (TAM HALİ)
 app.get('/api/hizli-cevaplar', authMiddleware, async (req, res) => {
     try {
         const result = await db.query('SELECT * FROM hizli_cevaplar ORDER BY id');
@@ -173,14 +172,10 @@ let conversations = new Map();
 io.on('connection', (socket) => {
     console.log('Yeni bir bağlantı:', socket.id);
     socket.isOperator = false;
-
     const token = socket.handshake.auth.token;
     if (token) {
         jwt.verify(token, JWT_SECRET, (err, decoded) => {
-            if (err || !decoded.isOperator) {
-                console.log(`Geçersiz token ile bağlantı denemesi: ${socket.id}`);
-                return;
-            }
+            if (err || !decoded.isOperator) return;
             socket.isOperator = true;
             console.log(`Doğrulanmış operatör bağlandı: ${socket.id}`);
             socket.join('operators');
@@ -194,7 +189,7 @@ io.on('connection', (socket) => {
         if (!convo) {
             const userInfoRes = await db.query("SELECT isim FROM kullanici_bilgileri WHERE kullanici_id = $1", [userId]);
             const historyRes = await db.query("SELECT gonderen, mesaj FROM sohbet_gecmisi WHERE kullanici_id = $1 ORDER BY tarih ASC", [userId]);
-            convo = { id: userId, name: userInfoRes.rows[0]?.isim || `Kullanıcı #${userId.substring(0, 4)}`, messages: historyRes.rows.map(r => ({ from: r.gonderen, text: r.mesaj })), lastMessage: historyRes.rows.length > 0 ? historyRes.rows[historyRes.rows.length - 1].mesaj : "Yeni sohbet başlattı." };
+            convo = { id: userId, name: userInfoRes.rows[0]?.isim || `Kullanıcı #${userId.substring(0, 4)}`, messages: historyRes.rows.map(r => ({ from: r.gonderen, text: r.mesaj })), lastMessage: "Yeni sohbet başlattı." };
             conversations.set(userId, convo);
         }
         socket.emit('chat history', convo.messages);

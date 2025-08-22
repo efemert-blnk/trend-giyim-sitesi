@@ -25,7 +25,7 @@ db.connect(err => {
 app.use(bodyParser.json());
 app.use(cors());
 
-// Giriş (Login) API - Token Üretiyor
+// Giriş (Login) API ve Token Ayarları
 const OPERATOR_PASSWORD = process.env.OPERATOR_PASSWORD || "12345";
 const JWT_SECRET = process.env.JWT_SECRET || 'cok-gizli-bir-anahtar';
 
@@ -76,18 +76,21 @@ const createTables = async () => {
         const yorumRes = await db.query("SELECT COUNT(*) as count FROM yorumlar");
         if (yorumRes.rows[0].count == 0) {
             const defaultYorumlar = [
-                { ad: 'Ahmet Y.', mesaj: 'Takım elbisenin kalitesi ve duruşu harika, tam istediğim gibi oldu. Teşekkürler!', puan: 5 },
-                { ad: 'Murat K.', mesaj: 'Çorumdaki en iyi erkek giyim mağazası diyebilirim. Personel çok ilgili.', puan: 5 },
-                { ad: 'Caner B.', mesaj: 'Gömlek ve pantolon aldım, kumaşları çok kaliteli. Fiyatlar da makul.', puan: 4 },
-                { ad: 'Selim T.', mesaj: 'Düğünüm için smokin alışverişi yaptım. Yardımlarınız için minnettarım, sayenizde çok şık oldum.', puan: 5 },
-                { ad: 'Fatih G.', mesaj: 'Ürün çeşitliliği gayet iyi, aradığım her tarzda bir şeyler bulabiliyorum.', puan: 4 },
-                { ad: 'Emre S.', mesaj: 'Online destekten aldığım bilgiyle mağazaya gittim, tam istediğim ürünü hemen buldum.', puan: 5 },
-                { ad: 'Hakan D.', mesaj: 'Spor giyim koleksiyonunuzu çok beğendim, özellikle sweatshirtler harika.', puan: 5 },
-                { ad: 'Ozan A.', mesaj: 'Paça boyu tadilatını hemen ücretsiz bir şekilde hallettiler. Müşteri memnuniyetine önem veriyorlar.', puan: 5 },
-                { ad: 'Volkan C.', mesaj: 'Fiyatlar bir tık daha uygun olabilirdi ama kaliteye diyecek yok.', puan: 4 },
-                { ad: 'Gökhan M.', mesaj: 'Yıllardır değişmeyen adresim. Her zaman güler yüzle karşılanıyorum.', puan: 5 },
-                { ad: 'İsmail E.', mesaj: 'Ceket kalıpları tam üzerime göre. Çok memnun kaldım.', puan: 5 },
-                { ad: 'Uğur Ş.', mesaj: 'Yeni sezon ürünlerini takip ediyorum, her zaman çok şık parçalar getiriyorlar.', puan: 5 }
+                { ad: 'Ahmet Yılmaz', mesaj: 'Takım elbisenin kalitesi ve duruşu harika, tam istediğim gibi oldu. Teşekkürler!', puan: 5 },
+                { ad: 'Murat Kaya', mesaj: 'Çorumdaki en iyi erkek giyim mağazası diyebilirim. Personel çok ilgili.', puan: 5 },
+                { ad: 'Caner Biçer', mesaj: 'Gömlek ve pantolon aldım, kumaşları çok kaliteli. Fiyatlar da makul.', puan: 4 },
+                { ad: 'Selim Tuncel', mesaj: 'Düğünüm için smokin alışverişi yaptım. Yardımlarınız için minnettarım, sayenizde çok şık oldum.', puan: 5 },
+                { ad: 'Fatih Gümüş', mesaj: 'Ürün çeşitliliği gayet iyi, aradığım her tarzda bir şeyler bulabiliyorum.', puan: 4 },
+                { ad: 'Emre Sönmez', mesaj: 'Online destekten aldığım bilgiyle mağazaya gittim, tam istediğim ürünü hemen buldum.', puan: 5 },
+                { ad: 'Hakan Demir', mesaj: 'Spor giyim koleksiyonunuzu çok beğendim, özellikle sweatshirtler harika.', puan: 5 },
+                { ad: 'Ozan Aktaş', mesaj: 'Paça boyu tadilatını hemen ücretsiz bir şekilde hallettiler. Müşteri memnuniyetine önem veriyorlar.', puan: 5 },
+                { ad: 'Volkan Can', mesaj: 'Fiyatlar bir tık daha uygun olabilirdi ama kaliteye diyecek yok.', puan: 4 },
+                { ad: 'Gökhan Mercan', mesaj: 'Yıllardır değişmeyen adresim. Her zaman güler yüzle karşılanıyorum.', puan: 5 },
+                { ad: 'İsmail Eren', mesaj: 'Ceket kalıpları tam üzerime göre. Çok memnun kaldım.', puan: 5 },
+                { ad: 'Uğur Şahin', mesaj: 'Yeni sezon ürünlerini takip ediyorum, her zaman çok şık parçalar getiriyorlar.', puan: 5 },
+                { ad: 'Kerem Aslan', mesaj: 'Aldığım kaban hem sıcak tutuyor hem de çok tarz duruyor. Tavsiye ederim.', puan: 5 },
+                { ad: 'Barış Doğan', mesaj: 'Mağaza atmosferi çok ferah ve modern. Alışveriş yaparken keyif aldım.', puan: 4 },
+                { ad: 'Levent Öztürk', mesaj: 'Personelin stil konusundaki önerileri gerçekten çok yerinde. Ufkumu açtılar.', puan: 5 }
             ];
             const query = 'INSERT INTO yorumlar (ad, mesaj, puan) VALUES ($1, $2, $3)';
             for (const yorum of defaultYorumlar) {
@@ -97,7 +100,7 @@ const createTables = async () => {
         }
 
     } catch (err) {
-        if (err.code !== '42P07' && err.code !== '42701') console.error("Tablo oluşturma hatası:", err.message);
+        if (err.code !== '42P07' && err.code !== '42701') console.error("Tablo oluşturma hatası:", err.message); // Hataları yoksay
     }
 };
 
@@ -114,7 +117,7 @@ app.post('/api/yorumlar', async (req, res) => {
         const { ad, mesaj, puan } = req.body;
         if (!ad || !mesaj || !puan) return res.status(400).json({ error: 'Tüm alanlar zorunludur.' });
         await db.query('INSERT INTO onay_bekleyen_yorumlar (ad, mesaj, puan) VALUES ($1, $2, $3)', [ad, mesaj, puan]);
-        res.status(201).json({ message: 'Yorumunuz onaya gönderildi. Teşekkür ederiz!' });
+        res.status(201).json({ message: 'Yorumunuz başarıyla alınmıştır. Onaylandıktan sonra yayınlanacaktır.' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

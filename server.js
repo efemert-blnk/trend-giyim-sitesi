@@ -3,16 +3,22 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
-const { Client } = require('pg'); // SQLite yerine pg'yi kullanıyoruz
+const { Client } = require('pg');
+const path = require('path'); // Statik dosyalar için gerekli olan modül
 
 const app = express();
-const port = process.env.PORT || 3000; // Render'ın portu için ayar
+const port = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
 app.use(cors());
 
+// --- Statik Dosya Sunucusu ---
+// Bu kod, public klasöründeki tüm dosyaları (index.html, resimler vb.)
+// internette erişilebilir hale getirir. Bu en önemli eklemedir.
+app.use(express.static(path.join(__dirname, 'public')));
+// -----------------------------------------
+
 // PostgreSQL veritabanı bağlantısı
-// Render bu URL'yi otomatik olarak "Environment Variable" olarak sağlayacak
 const db = new Client({
     connectionString: process.env.DATABASE_URL,
     ssl: {
@@ -25,7 +31,6 @@ db.connect(err => {
         return console.error('Veritabanına bağlanılamadı', err.stack);
     }
     console.log('PostgreSQL veritabanına başarıyla bağlandı.');
-    // Sunucu başlangıcında tabloları oluştur
     createTables();
 });
 
@@ -50,13 +55,14 @@ const createTables = async () => {
     }
 };
 
-// Hızlı Cevaplar API (CRUD) - PostgreSQL uyumlu hale getirildi
+// Hızlı Cevaplar API (CRUD)
 app.get('/api/hizli-cevaplar', async (req, res) => {
     try {
         const result = await db.query('SELECT * FROM hizli_cevaplar ORDER BY id');
         res.json(result.rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
 app.post('/api/hizli-cevaplar', async (req, res) => {
     try {
         const { metin } = req.body;
@@ -65,6 +71,7 @@ app.post('/api/hizli-cevaplar', async (req, res) => {
         res.status(201).json(result.rows[0]);
     } catch (err) { res.status(err.code === '23505' ? 409 : 500).json({ error: 'Bu cevap zaten mevcut.' }); }
 });
+
 app.put('/api/hizli-cevaplar/:id', async (req, res) => {
     try {
         const { metin } = req.body;
@@ -74,6 +81,7 @@ app.put('/api/hizli-cevaplar/:id', async (req, res) => {
         res.status(200).json({ message: 'Güncellendi.' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
 app.delete('/api/hizli-cevaplar/:id', async (req, res) => {
     try {
         const result = await db.query('DELETE FROM hizli_cevaplar WHERE id = $1', [req.params.id]);
@@ -82,10 +90,9 @@ app.delete('/api/hizli-cevaplar/:id', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
-// ... (Socket.IO kodları öncekiyle aynı, veritabanı sorguları artık db.query ile çalışacak)
+
 // Canlı Destek Mantığı
 let onlineUsers = new Map();
 let conversations = new Map();
@@ -152,7 +159,10 @@ io.on('connection', (socket) => {
         if (targetSocketId) io.to(targetSocketId).emit('chat ended by operator');
     });
 
-    socket.on('disconnect', () => { onlineUsers.delete(socket.id); socket.leave('operators'); });
+    socket.on('disconnect', () => {
+        onlineUsers.delete(socket.id);
+        socket.leave('operators');
+    });
 });
 
-server.listen(port, () => console.log(`Backend sunucusu http://localhost:${port} adresinde çalışıyor.`));
+server.listen(port, () => console.log(`Backend sunucusu ${port} portunda çalışıyor.`));

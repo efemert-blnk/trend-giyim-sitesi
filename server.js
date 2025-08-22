@@ -72,11 +72,13 @@ app.get('/operator.html', authMiddleware, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'operator.html'));
 });
 
+// Tabloları Oluşturma Fonksiyonu
 const createTables = async () => {
     try {
         await db.query(`CREATE TABLE IF NOT EXISTS hizli_cevaplar (id SERIAL PRIMARY KEY, metin TEXT NOT NULL UNIQUE)`);
         await db.query(`CREATE TABLE IF NOT EXISTS sohbet_gecmisi (id SERIAL PRIMARY KEY, kullanici_id TEXT, gonderen TEXT, mesaj TEXT, tarih TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)`);
         await db.query(`CREATE TABLE IF NOT EXISTS kullanici_bilgileri (kullanici_id TEXT PRIMARY KEY, isim TEXT)`);
+        await db.query(`CREATE TABLE IF NOT EXISTS "user_sessions" ("sid" varchar NOT NULL COLLATE "default","sess" json NOT NULL,"expire" timestamp(6) NOT NULL) WITH (OIDS=FALSE); ALTER TABLE "user_sessions" ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE;`);
 
         const res = await db.query("SELECT COUNT(*) as count FROM hizli_cevaplar");
         if (res.rows[0].count == 0) {
@@ -89,7 +91,7 @@ const createTables = async () => {
             console.log("Varsayılan hızlı cevaplar eklendi.");
         }
     } catch (err) {
-        console.error("Tablo oluşturma hatası:", err);
+        console.error("Tablo oluşturma hatası:", err.message);
     }
 };
 

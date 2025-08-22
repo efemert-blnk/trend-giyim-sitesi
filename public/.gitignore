@@ -1,8 +1,0 @@
-# Bağımlılıklar
-node_modules
-
-# Veritabanı dosyası
-destek.db
-
-# İşletim sistemi dosyaları
-.DS_Store

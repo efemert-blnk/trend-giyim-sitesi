@@ -148,9 +148,7 @@
                     <li><a href="#galeri">Galeri</a></li>
                     <li><a href="#iletisim">İletişim</a></li>
                     
-                    <li id="kayit-btn-li"><a href="#" id="kayit-btn">Kayıt Ol</a></li>
-                    <li id="giris-btn-li"><a href="#" id="giris-btn">Giriş Yap</a></li>
-                    <li id="profil-btn-li" class="hidden"><a href="#" id="profil-btn">Profilim</a></li>
+                    <li id="auth-btn-li"><a href="#" id="auth-btn">Giriş Yap / Kayıt Ol</a></li>
                     <li id="cikis-btn-li" class="hidden"><a href="#" id="cikis-btn">Çıkış Yap</a></li>
 
                     <li>
@@ -377,7 +375,7 @@
         </div>
     </div>
 
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.umd.js"></script>
     
     <script>
@@ -398,12 +396,13 @@
         stilAsistaniBaslatBtn.addEventListener("click",e=>{e.preventDefault(),baslatQuiz()});
 
         // --- KULLANICI HESAP YÖNETİMİ (AUTH) ---
-        const kayitBtn=document.getElementById("kayit-btn"),girisBtn=document.getElementById("giris-btn"),cikisBtn=document.getElementById("cikis-btn"),authOverlay=document.getElementById("auth-overlay"),authTabs=document.querySelectorAll(".auth-tab"),authPanes=document.querySelectorAll(".auth-pane"),kayitForm=document.getElementById("kayit-form"),girisForm=document.getElementById("giris-form"),kayitMesaj=document.getElementById("kayit-mesaj"),girisMesaj=document.getElementById("giris-mesaj");
-        const authDurumunuGuncelle=()=>{const e=localStorage.getItem("userToken");e?(document.getElementById("kayit-btn-li").classList.add("hidden"),document.getElementById("giris-btn-li").classList.add("hidden"),document.getElementById("profil-btn-li").classList.remove("hidden"),document.getElementById("cikis-btn-li").classList.remove("hidden")):(document.getElementById("kayit-btn-li").classList.remove("hidden"),document.getElementById("giris-btn-li").classList.remove("hidden"),document.getElementById("profil-btn-li").classList.add("hidden"),document.getElementById("cikis-btn-li").classList.add("hidden"))};
+        const authBtn=document.getElementById("auth-btn"),cikisBtn=document.getElementById("cikis-btn"),authOverlay=document.getElementById("auth-overlay"),authTabs=document.querySelectorAll(".auth-tab"),authPanes=document.querySelectorAll(".auth-pane"),kayitForm=document.getElementById("kayit-form"),girisForm=document.getElementById("giris-form"),kayitMesaj=document.getElementById("kayit-mesaj"),girisMesaj=document.getElementById("giris-mesaj");
+        const authDurumunuGuncelle=()=>{const e=localStorage.getItem("userToken");e?(document.getElementById("auth-btn-li").classList.add("hidden"),document.getElementById("cikis-btn-li").classList.remove("hidden")):(document.getElementById("auth-btn-li").classList.remove("hidden"),document.getElementById("cikis-btn-li").classList.add("hidden"))};
         const openAuthModal=e=>{authTabs.forEach(e=>e.classList.remove("active")),authPanes.forEach(e=>e.classList.remove("active")),document.querySelector(`.auth-tab[data-tab="${e}"]`).classList.add("active"),document.getElementById(`${e}-pane`).classList.add("active"),authOverlay.classList.add("goster")};
-        kayitBtn.addEventListener("click",e=>{e.preventDefault(),openAuthModal("register")}),girisBtn.addEventListener("click",e=>{e.preventDefault(),openAuthModal("login")}),authTabs.forEach(e=>{e.addEventListener("click",()=>openAuthModal(e.dataset.tab))});
+        authBtn.addEventListener("click",e=>{e.preventDefault(),openAuthModal("login")}),authTabs.forEach(e=>{e.addEventListener("click",()=>openAuthModal(e.dataset.tab))});
         [quizOverlay,authOverlay].forEach(e=>{e.querySelector(".modal-kapat").addEventListener("click",()=>e.classList.remove("goster")),e.addEventListener("click",t=>{t.target===e&&e.classList.remove("goster")})});
-        kayitForm.addEventListener("submit",async e=>{e.preventDefault();const t=document.getElementById("kayit-ad").value,a=document.getElementById("kayit-soyad").value,o=document.getElementById("kayit-email").value,n=document.getElementById("kayit-sifre").value;try{const e=await fetch("/api/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ad:t,soyad:a,email:o,sifre:n})}),i=await e.json();kayitMesaj.textContent=i.message,kayitMesaj.className=`form-message ${e.ok?"success":"error"}`,kayitMesaj.style.display="block",e.ok&&setTimeout(()=>openAuthModal("login"),2e3)}catch(e){kayitMesaj.textContent="Bir hata oluştu.",kayitMesaj.className="form-message error",kayitMesaj.style.display="block"}});
+        
+        kayitForm.addEventListener("submit",async e=>{e.preventDefault();const t=document.getElementById("kayit-ad").value,a=document.getElementById("kayit-soyad").value,o=document.getElementById("kayit-email").value,n=document.getElementById("kayit-sifre").value;try{const e=await fetch("/api/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ad:t,soyad:a,email:o,sifre:n})}),i=await e.json();kayitMesaj.textContent=i.message,kayitMesaj.className=`form-message ${e.ok?"success":"error"}`,kayitMesaj.style.display="block",e.ok&&(localStorage.setItem("userToken",i.token),localStorage.setItem("userInfo",JSON.stringify(i.kullanici)),authDurumunuGuncelle(),setTimeout(()=>authOverlay.classList.remove("goster"),1500))}catch(e){kayitMesaj.textContent="Bir hata oluştu.",kayitMesaj.className="form-message error",kayitMesaj.style.display="block"}});
         girisForm.addEventListener("submit",async e=>{e.preventDefault();const t=document.getElementById("giris-email").value,a=document.getElementById("giris-sifre").value;try{const e=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:t,sifre:a})}),o=await e.json();girisMesaj.textContent=o.message,girisMesaj.className=`form-message ${e.ok?"success":"error"}`,girisMesaj.style.display="block",e.ok&&(localStorage.setItem("userToken",o.token),localStorage.setItem("userInfo",JSON.stringify(o.kullanici)),authDurumunuGuncelle(),setTimeout(()=>authOverlay.classList.remove("goster"),1500))}catch(e){girisMesaj.textContent="Bir hata oluştu.",girisMesaj.className="form-message error",girisMesaj.style.display="block"}});
         cikisBtn.addEventListener("click",e=>{e.preventDefault(),localStorage.removeItem("userToken"),localStorage.removeItem("userInfo"),authDurumunuGuncelle()});
         authDurumunuGuncelle();

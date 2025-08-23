@@ -6,7 +6,7 @@ const { Server } = require('socket.io');
 const { Client } = require('pg');
 const path = require('path');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs'); // YENİ EKLENDİ
+const bcrypt = require('bcryptjs');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -42,7 +42,7 @@ const createTables = async () => {
         await db.query(`CREATE TABLE IF NOT EXISTS sohbet_gecmisi (id SERIAL PRIMARY KEY, kullanici_id TEXT, gonderen TEXT, mesaj TEXT, tarih TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)`);
         await db.query(`CREATE TABLE IF NOT EXISTS kullanici_bilgileri (kullanici_id TEXT PRIMARY KEY, isim TEXT, sohbet_durumu TEXT DEFAULT 'acik')`);
         
-        // YENİ EKLENDİ: Kullanıcılar tablosu
+        // GÜNCELLENDİ: Kullanıcılar tablosuna ban_durumu eklendi
         await db.query(`
             CREATE TABLE IF NOT EXISTS kullanicilar (
                 id SERIAL PRIMARY KEY,
@@ -50,11 +50,11 @@ const createTables = async () => {
                 soyad TEXT NOT NULL,
                 email TEXT NOT NULL UNIQUE,
                 sifre_hash TEXT NOT NULL,
+                ban_durumu BOOLEAN DEFAULT FALSE,
                 olusturma_tarihi TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
             )
         `);
 
-        // Zengin içerik için varsayılan yorumları ekle
         const yorumRes = await db.query("SELECT COUNT(*) as count FROM yorumlar");
         if (yorumRes.rows[0].count == 0) {
             const defaultYorumlar = [
@@ -87,84 +87,79 @@ app.post('/login', (req, res) => {
     }
 });
 
-// YENİ EKLENDİ: KULLANICI KAYIT (REGISTER) API
+// GÜNCELLENDİ: KULLANICI KAYIT (REGISTER) API (Otomatik giriş için token dönecek)
 app.post('/api/register', async (req, res) => {
     try {
         const { ad, soyad, email, sifre } = req.body;
-
         if (!ad || !soyad || !email || !sifre) {
             return res.status(400).json({ message: 'Lütfen tüm alanları doldurun.' });
         }
-
         const mevcutKullanici = await db.query('SELECT * FROM kullanicilar WHERE email = $1', [email]);
         if (mevcutKullanici.rows.length > 0) {
             return res.status(409).json({ message: 'Bu e-posta adresi zaten kullanılıyor.' });
         }
-
         const salt = await bcrypt.genSalt(10);
         const sifreHash = await bcrypt.hash(sifre, salt);
-
-        const yeniKullanici = await db.query(
-            'INSERT INTO kullanicilar (ad, soyad, email, sifre_hash) VALUES ($1, $2, $3, $4) RETURNING id, email',
+        const yeniKullaniciRes = await db.query(
+            'INSERT INTO kullanicilar (ad, soyad, email, sifre_hash) VALUES ($1, $2, $3, $4) RETURNING *',
             [ad, soyad, email, sifreHash]
         );
+        const yeniKullanici = yeniKullaniciRes.rows[0];
 
-        res.status(201).json({ 
-            message: 'Hesabınız başarıyla oluşturuldu!',
-            kullanici: yeniKullanici.rows[0]
+        // Kayıt sonrası otomatik giriş için token oluştur
+        const token = jwt.sign(
+            { userId: yeniKullanici.id, email: yeniKullanici.email, isOperator: false },
+            JWT_SECRET, { expiresIn: '8h' }
+        );
+
+        res.status(201).json({
+            message: 'Hesabınız başarıyla oluşturuldu ve giriş yapıldı!',
+            token: token,
+            kullanici: { id: yeniKullanici.id, ad: yeniKullanici.ad, email: yeniKullanici.email }
         });
-
     } catch (error) {
         console.error("Kayıt hatası:", error);
-        res.status(500).json({ message: 'Sunucu hatası. Lütfen daha sonra tekrar deneyin.' });
+        res.status(500).json({ message: 'Sunucu hatası.' });
     }
 });
 
-// YENİ EKLENDİ: KULLANICI GİRİŞ (LOGIN) API
+// GÜNCELLENDİ: KULLANICI GİRİŞ (LOGIN) API (Ban kontrolü eklendi)
 app.post('/api/login', async (req, res) => {
     try {
         const { email, sifre } = req.body;
-
         if (!email || !sifre) {
             return res.status(400).json({ message: 'Lütfen tüm alanları doldurun.' });
         }
-
-        const kullanici = await db.query('SELECT * FROM kullanicilar WHERE email = $1', [email]);
-        if (kullanici.rows.length === 0) {
+        const kullaniciRes = await db.query('SELECT * FROM kullanicilar WHERE email = $1', [email]);
+        if (kullaniciRes.rows.length === 0) {
             return res.status(401).json({ message: 'E-posta veya şifre hatalı.' });
         }
+        
+        const kullanici = kullaniciRes.rows[0];
 
-        const dogruSifre = await bcrypt.compare(sifre, kullanici.rows[0].sifre_hash);
+        // Ban kontrolü
+        if (kullanici.ban_durumu) {
+            return res.status(403).json({ message: 'Bu hesap askıya alınmıştır. Lütfen destek ile iletişime geçin.' });
+        }
+
+        const dogruSifre = await bcrypt.compare(sifre, kullanici.sifre_hash);
         if (!dogruSifre) {
             return res.status(401).json({ message: 'E-posta veya şifre hatalı.' });
         }
-
         const token = jwt.sign(
-            { 
-                userId: kullanici.rows[0].id,
-                email: kullanici.rows[0].email,
-                isOperator: false 
-            }, 
-            JWT_SECRET,
-            { expiresIn: '8h' }
+            { userId: kullanici.id, email: kullanici.email, isOperator: false },
+            JWT_SECRET, { expiresIn: '8h' }
         );
-
         res.status(200).json({
             message: 'Giriş başarılı!',
             token: token,
-            kullanici: {
-                id: kullanici.rows[0].id,
-                ad: kullanici.rows[0].ad,
-                email: kullanici.rows[0].email
-            }
+            kullanici: { id: kullanici.id, ad: kullanici.ad, email: kullanici.email }
         });
-
     } catch (error) {
         console.error("Giriş hatası:", error);
-        res.status(500).json({ message: 'Sunucu hatası. Lütfen daha sonra tekrar deneyin.' });
+        res.status(500).json({ message: 'Sunucu hatası.' });
     }
 });
-
 
 // --- OPERATÖR İÇİN TOKEN DOĞRULAMA ---
 const authMiddleware = (req, res, next) => {
@@ -187,7 +182,6 @@ app.get('/operator.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'operator.html'));
 });
 
-
 // --- YORUM API UÇ NOKTALARI ---
 app.get('/api/yorumlar', async (req, res) => {
     try {
@@ -204,7 +198,6 @@ app.post('/api/yorumlar', async (req, res) => {
         res.status(201).json({ message: 'Yorumunuz başarıyla alınmıştır. Onaylandıktan sonra yayınlanacaktır.' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 
 // --- YORUM YÖNETİM API'LARI (OPERATÖR İÇİN) ---
 app.get('/api/onay-bekleyen-yorumlar', authMiddleware, async (req, res) => {
@@ -233,7 +226,6 @@ app.delete('/api/onay-bekleyen-yorumlar/:id', authMiddleware, async (req, res) =
         res.status(200).json({ message: 'Yorum silindi.' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 
 // --- HIZLI CEVAP API'LARI ---
 app.get('/api/hizli-cevaplar', authMiddleware, async (req, res) => {
@@ -268,6 +260,29 @@ app.delete('/api/hizli-cevaplar/:id', authMiddleware, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// --- ADMİN PANELİ İŞLEMLERİ ---
+app.get('/api/admin/users', authMiddleware, async (req, res) => {
+    try {
+        const result = await db.query('SELECT id, ad, soyad, email, olusturma_tarihi, ban_durumu FROM kullanicilar ORDER BY olusturma_tarihi DESC');
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/admin/users/:id/ban', authMiddleware, async (req, res) => {
+    try {
+        await db.query('UPDATE kullanicilar SET ban_durumu = TRUE WHERE id = $1', [req.params.id]);
+        res.status(200).json({ message: 'Kullanıcı başarıyla banlandı.' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/users/:id/unban', authMiddleware, async (req, res) => {
+    try {
+        await db.query('UPDATE kullanicilar SET ban_durumu = FALSE WHERE id = $1', [req.params.id]);
+        res.status(200).json({ message: 'Kullanıcının banı kaldırıldı.' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
 // --- CANLI DESTEK (Socket.IO) ---
 const server = http.createServer(app);

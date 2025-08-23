@@ -26,7 +26,7 @@ db.connect(err => {
 app.use(bodyParser.json());
 app.use(cors());
 
-// Giriş (Login) API ve Token Ayarları
+// Token Ayarları
 const OPERATOR_PASSWORD = process.env.OPERATOR_PASSWORD || "12345";
 const JWT_SECRET = process.env.JWT_SECRET || 'cok-gizli-bir-anahtar';
 
@@ -42,7 +42,6 @@ const createTables = async () => {
         await db.query(`CREATE TABLE IF NOT EXISTS sohbet_gecmisi (id SERIAL PRIMARY KEY, kullanici_id TEXT, gonderen TEXT, mesaj TEXT, tarih TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)`);
         await db.query(`CREATE TABLE IF NOT EXISTS kullanici_bilgileri (kullanici_id TEXT PRIMARY KEY, isim TEXT, sohbet_durumu TEXT DEFAULT 'acik')`);
         
-        // GÜNCELLENDİ: Kullanıcılar tablosuna ban_durumu eklendi
         await db.query(`
             CREATE TABLE IF NOT EXISTS kullanicilar (
                 id SERIAL PRIMARY KEY,
@@ -60,23 +59,18 @@ const createTables = async () => {
             const defaultYorumlar = [
                 { ad: 'Ahmet Yılmaz', mesaj: 'Takım elbisenin kalitesi ve duruşu harika, tam istediğim gibi oldu. Teşekkürler!', puan: 5 },
                 { ad: 'Murat Kaya', mesaj: 'Çorumdaki en iyi erkek giyim mağazası diyebilirim. Personel çok ilgili.', puan: 5 },
-                { ad: 'Caner Biçer', mesaj: 'Gömlek ve pantolon aldım, kumaşları çok kaliteli. Fiyatlar da makul.', puan: 4 },
             ];
             const query = 'INSERT INTO yorumlar (ad, mesaj, puan) VALUES ($1, $2, $3)';
             for (const yorum of defaultYorumlar) {
                 await db.query(query, [yorum.ad, yorum.mesaj, yorum.puan]);
             }
-            console.log("Varsayılan onaylanmış yorumlar eklendi.");
         }
-
     } catch (err) {
         if (err.code !== '42P07' && err.code !== '42701') console.error("Tablo oluşturma hatası:", err.message);
     }
 };
 
 // --- HESAP YÖNETİMİ API'LARI ---
-
-// OPERATÖR GİRİŞİ
 app.post('/login', (req, res) => {
     const { password } = req.body;
     if (password === OPERATOR_PASSWORD) {
@@ -87,89 +81,62 @@ app.post('/login', (req, res) => {
     }
 });
 
-// GÜNCELLENDİ: KULLANICI KAYIT (REGISTER) API (Otomatik giriş için token dönecek)
 app.post('/api/register', async (req, res) => {
     try {
         const { ad, soyad, email, sifre } = req.body;
-        if (!ad || !soyad || !email || !sifre) {
-            return res.status(400).json({ message: 'Lütfen tüm alanları doldurun.' });
-        }
+        if (!ad || !soyad || !email || !sifre) return res.status(400).json({ message: 'Lütfen tüm alanları doldurun.' });
+        
         const mevcutKullanici = await db.query('SELECT * FROM kullanicilar WHERE email = $1', [email]);
-        if (mevcutKullanici.rows.length > 0) {
-            return res.status(409).json({ message: 'Bu e-posta adresi zaten kullanılıyor.' });
-        }
+        if (mevcutKullanici.rows.length > 0) return res.status(409).json({ message: 'Bu e-posta adresi zaten kullanılıyor.' });
+        
         const salt = await bcrypt.genSalt(10);
         const sifreHash = await bcrypt.hash(sifre, salt);
-        const yeniKullaniciRes = await db.query(
-            'INSERT INTO kullanicilar (ad, soyad, email, sifre_hash) VALUES ($1, $2, $3, $4) RETURNING *',
-            [ad, soyad, email, sifreHash]
-        );
+        const yeniKullaniciRes = await db.query('INSERT INTO kullanicilar (ad, soyad, email, sifre_hash) VALUES ($1, $2, $3, $4) RETURNING *', [ad, soyad, email, sifreHash]);
         const yeniKullanici = yeniKullaniciRes.rows[0];
-
-        // Kayıt sonrası otomatik giriş için token oluştur
-        const token = jwt.sign(
-            { userId: yeniKullanici.id, email: yeniKullanici.email, isOperator: false },
-            JWT_SECRET, { expiresIn: '8h' }
-        );
-
+        const token = jwt.sign({ userId: yeniKullanici.id, email: yeniKullanici.email, isOperator: false }, JWT_SECRET, { expiresIn: '8h' });
+        
         res.status(201).json({
             message: 'Hesabınız başarıyla oluşturuldu ve giriş yapıldı!',
             token: token,
             kullanici: { id: yeniKullanici.id, ad: yeniKullanici.ad, email: yeniKullanici.email }
         });
     } catch (error) {
-        console.error("Kayıt hatası:", error);
         res.status(500).json({ message: 'Sunucu hatası.' });
     }
 });
 
-// GÜNCELLENDİ: KULLANICI GİRİŞ (LOGIN) API (Ban kontrolü eklendi)
 app.post('/api/login', async (req, res) => {
     try {
         const { email, sifre } = req.body;
-        if (!email || !sifre) {
-            return res.status(400).json({ message: 'Lütfen tüm alanları doldurun.' });
-        }
+        if (!email || !sifre) return res.status(400).json({ message: 'Lütfen tüm alanları doldurun.' });
+        
         const kullaniciRes = await db.query('SELECT * FROM kullanicilar WHERE email = $1', [email]);
-        if (kullaniciRes.rows.length === 0) {
-            return res.status(401).json({ message: 'E-posta veya şifre hatalı.' });
-        }
+        if (kullaniciRes.rows.length === 0) return res.status(401).json({ message: 'E-posta veya şifre hatalı.' });
         
         const kullanici = kullaniciRes.rows[0];
-
-        // Ban kontrolü
-        if (kullanici.ban_durumu) {
-            return res.status(403).json({ message: 'Bu hesap askıya alınmıştır. Lütfen destek ile iletişime geçin.' });
-        }
+        if (kullanici.ban_durumu) return res.status(403).json({ message: 'Bu hesap askıya alınmıştır.' });
 
         const dogruSifre = await bcrypt.compare(sifre, kullanici.sifre_hash);
-        if (!dogruSifre) {
-            return res.status(401).json({ message: 'E-posta veya şifre hatalı.' });
-        }
-        const token = jwt.sign(
-            { userId: kullanici.id, email: kullanici.email, isOperator: false },
-            JWT_SECRET, { expiresIn: '8h' }
-        );
+        if (!dogruSifre) return res.status(401).json({ message: 'E-posta veya şifre hatalı.' });
+        
+        const token = jwt.sign({ userId: kullanici.id, email: kullanici.email, isOperator: false }, JWT_SECRET, { expiresIn: '8h' });
         res.status(200).json({
             message: 'Giriş başarılı!',
             token: token,
             kullanici: { id: kullanici.id, ad: kullanici.ad, email: kullanici.email }
         });
     } catch (error) {
-        console.error("Giriş hatası:", error);
         res.status(500).json({ message: 'Sunucu hatası.' });
     }
 });
 
-// --- OPERATÖR İÇİN TOKEN DOĞRULAMA ---
+// --- OPERATÖR YETKİLENDİRME ---
 const authMiddleware = (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.split(' ')[1];
         jwt.verify(token, JWT_SECRET, (err, decoded) => {
-            if (err || !decoded.isOperator) {
-                return res.status(403).json({ message: 'Geçersiz veya süresi dolmuş token.' });
-            }
+            if (err || !decoded.isOperator) return res.status(403).json({ message: 'Yetkisiz işlem.' });
             req.user = decoded;
             next();
         });
@@ -182,14 +149,13 @@ app.get('/operator.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'operator.html'));
 });
 
-// --- YORUM API UÇ NOKTALARI ---
+// --- YORUM API'LARI ---
 app.get('/api/yorumlar', async (req, res) => {
     try {
         const result = await db.query('SELECT * FROM yorumlar ORDER BY tarih DESC');
         res.json({ yorumlar: result.rows });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/yorumlar', async (req, res) => {
     try {
         const { ad, mesaj, puan } = req.body;
@@ -198,15 +164,12 @@ app.post('/api/yorumlar', async (req, res) => {
         res.status(201).json({ message: 'Yorumunuz başarıyla alınmıştır. Onaylandıktan sonra yayınlanacaktır.' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
-// --- YORUM YÖNETİM API'LARI (OPERATÖR İÇİN) ---
 app.get('/api/onay-bekleyen-yorumlar', authMiddleware, async (req, res) => {
     try {
         const result = await db.query('SELECT * FROM onay_bekleyen_yorumlar ORDER BY tarih ASC');
         res.json(result.rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/yorumlar/onayla/:id', authMiddleware, async (req, res) => {
     const { id } = req.params;
     try {
@@ -218,7 +181,6 @@ app.post('/api/yorumlar/onayla/:id', authMiddleware, async (req, res) => {
         res.status(200).json({ message: 'Yorum onaylandı.' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.delete('/api/onay-bekleyen-yorumlar/:id', authMiddleware, async (req, res) => {
     try {
         const result = await db.query('DELETE FROM onay_bekleyen_yorumlar WHERE id = $1', [req.params.id]);
@@ -234,7 +196,6 @@ app.get('/api/hizli-cevaplar', authMiddleware, async (req, res) => {
         res.json(result.rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/hizli-cevaplar', authMiddleware, async (req, res) => {
     try {
         const { metin } = req.body;
@@ -243,40 +204,19 @@ app.post('/api/hizli-cevaplar', authMiddleware, async (req, res) => {
     } catch (err) { res.status(err.code === '23505' ? 409 : 500).json({ error: 'Bu cevap zaten mevcut.' }); }
 });
 
-app.put('/api/hizli-cevaplar/:id', authMiddleware, async (req, res) => {
-    try {
-        const { metin } = req.body;
-        const result = await db.query('UPDATE hizli_cevaplar SET metin = $1 WHERE id = $2', [metin.trim(), req.params.id]);
-        if (result.rowCount > 0) res.status(200).json({ message: 'Güncellendi.' });
-        else res.status(404).json({ error: 'Cevap bulunamadı.'});
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.delete('/api/hizli-cevaplar/:id', authMiddleware, async (req, res) => {
-    try {
-        const result = await db.query('DELETE FROM hizli_cevaplar WHERE id = $1', [req.params.id]);
-        if (result.rowCount > 0) res.status(200).json({ message: 'Silindi.' });
-        else res.status(404).json({ error: 'Cevap bulunamadı.'});
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
 // --- ADMİN PANELİ İŞLEMLERİ ---
 app.get('/api/admin/users', authMiddleware, async (req, res) => {
     try {
         const result = await db.query('SELECT id, ad, soyad, email, olusturma_tarihi, ban_durumu FROM kullanicilar ORDER BY olusturma_tarihi DESC');
         res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/admin/users/:id/ban', authMiddleware, async (req, res) => {
     try {
         await db.query('UPDATE kullanicilar SET ban_durumu = TRUE WHERE id = $1', [req.params.id]);
-        res.status(200).json({ message: 'Kullanıcı başarıyla banlandı.' });
+        res.status(200).json({ message: 'Kullanıcı banlandı.' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/admin/users/:id/unban', authMiddleware, async (req, res) => {
     try {
         await db.query('UPDATE kullanicilar SET ban_durumu = FALSE WHERE id = $1', [req.params.id]);
@@ -284,37 +224,52 @@ app.post('/api/admin/users/:id/unban', authMiddleware, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+
 // --- CANLI DESTEK (Socket.IO) ---
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*", credentials: true } });
-
 let onlineUsers = new Map();
 let conversations = new Map();
 
 io.on('connection', (socket) => {
-    console.log('Yeni bir bağlantı:', socket.id);
     socket.isOperator = false;
-
-    const token = socket.handshake.auth.token;
-    if (token) {
-        jwt.verify(token, JWT_SECRET, (err, decoded) => {
-            if (err || !decoded.isOperator) {
-                return;
-            }
+    const operatorToken = socket.handshake.auth.token;
+    if (operatorToken) {
+        jwt.verify(operatorToken, JWT_SECRET, (err, decoded) => {
+            if (err || !decoded.isOperator) return;
             socket.isOperator = true;
-            console.log(`Doğrulanmış operatör bağlandı: ${socket.id}`);
             socket.join('operators');
             socket.emit('all conversations', Array.from(conversations.values()));
         });
     }
 
-    socket.on('user session connect', async ({ userId }) => {
+    socket.on('user session connect', async ({ userId, userToken }) => {
+        if (userToken) {
+            try {
+                const decoded = jwt.verify(userToken, JWT_SECRET);
+                if (decoded.userId) {
+                    const userRes = await db.query('SELECT ban_durumu FROM kullanicilar WHERE id = $1', [decoded.userId]);
+                    if (userRes.rows.length > 0 && userRes.rows[0].ban_durumu) {
+                        socket.emit('user banned');
+                        return;
+                    }
+                }
+            } catch (err) {}
+        }
+        
         onlineUsers.set(socket.id, userId);
         let convo = conversations.get(userId);
         if (!convo) {
-            const userInfoRes = await db.query("SELECT isim, sohbet_durumu FROM kullanici_bilgileri WHERE kullanici_id = $1", [userId]);
+            let name = `Kullanıcı #${userId.substring(0, 4)}`;
+            if(userToken){
+                try {
+                    const decoded = jwt.verify(userToken, JWT_SECRET);
+                    const userRes = await db.query('SELECT ad, soyad FROM kullanicilar WHERE id = $1', [decoded.userId]);
+                    if(userRes.rows.length > 0) name = `${userRes.rows[0].ad} ${userRes.rows[0].soyad}`;
+                } catch(e){}
+            }
             const historyRes = await db.query("SELECT gonderen, mesaj FROM sohbet_gecmisi WHERE kullanici_id = $1 ORDER BY tarih ASC", [userId]);
-            convo = { id: userId, name: userInfoRes.rows[0]?.isim || `Kullanıcı #${userId.substring(0, 4)}`, messages: historyRes.rows.map(r => ({ from: r.gonderen, text: r.mesaj })), lastMessage: "Sohbete bağlandı.", status: userInfoRes.rows[0]?.sohbet_durumu || 'acik' };
+            convo = { id: userId, name, messages: historyRes.rows.map(r => ({ from: r.gonderen, text: r.mesaj })), status: 'acik' };
             conversations.set(userId, convo);
         }
         
@@ -331,10 +286,8 @@ io.on('connection', (socket) => {
         if (convo) {
             if (convo.status === 'kapali') {
                 convo.status = 'acik';
-                await db.query("UPDATE kullanici_bilgileri SET sohbet_durumu = 'acik' WHERE kullanici_id = $1", [userId]);
             }
-            convo.messages.push({ from: 'user', text: message });
-            convo.lastMessage = message;
+            convo.messages.push({ from: 'user', text: message, tarih: new Date() });
             await db.query("INSERT INTO sohbet_gecmisi (kullanici_id, gonderen, mesaj) VALUES ($1, $2, $3)", [userId, 'user', message]);
             io.to('operators').emit('update conversation', convo);
         }
@@ -344,7 +297,7 @@ io.on('connection', (socket) => {
         if (socket.isOperator) {
             const convo = conversations.get(targetUserId);
             if (convo) {
-                convo.messages.push({ from: 'operator', text: message });
+                convo.messages.push({ from: 'operator', text: message, tarih: new Date() });
                 await db.query("INSERT INTO sohbet_gecmisi (kullanici_id, gonderen, mesaj) VALUES ($1, $2, $3)", [targetUserId, 'operator', message]);
                 const targetSocketId = [...onlineUsers.entries()].find(([, uid]) => uid === targetUserId)?.[0];
                 if (targetSocketId) io.to(targetSocketId).emit('operator reply', message);
@@ -353,23 +306,11 @@ io.on('connection', (socket) => {
         }
     });
     
-    socket.on('update user name', async ({ userId, newName }) => {
-        if (socket.isOperator) {
-            const convo = conversations.get(userId);
-            if (convo) {
-                convo.name = newName;
-                await db.query("INSERT INTO kullanici_bilgileri (kullanici_id, isim) VALUES ($1, $2) ON CONFLICT (kullanici_id) DO UPDATE SET isim = $2", [userId, newName]);
-                io.to('operators').emit('update conversation', convo);
-            }
-        }
-    });
-
     socket.on('end chat', async ({ userId }) => {
         if (socket.isOperator) {
             const convo = conversations.get(userId);
             if (convo) {
                 convo.status = 'kapali';
-                await db.query("INSERT INTO kullanici_bilgileri (kullanici_id, sohbet_durumu) VALUES ($1, 'kapali') ON CONFLICT (kullanici_id) DO UPDATE SET sohbet_durumu = 'kapali'", [userId]);
             }
             const targetSocketId = [...onlineUsers.entries()].find(([, uid]) => uid === userId)?.[0];
             if (targetSocketId) io.to(targetSocketId).emit('chat ended by operator');
@@ -378,7 +319,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        console.log('Bir bağlantı kesildi:', socket.id);
         onlineUsers.delete(socket.id);
     });
 });

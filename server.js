@@ -6,6 +6,7 @@ const { Server } = require('socket.io');
 const { Client } = require('pg');
 const path = require('path');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs'); // YENİ EKLENDİ
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -29,6 +30,53 @@ app.use(cors());
 const OPERATOR_PASSWORD = process.env.OPERATOR_PASSWORD || "12345";
 const JWT_SECRET = process.env.JWT_SECRET || 'cok-gizli-bir-anahtar';
 
+// Statik Dosyaları Sunma
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Tabloları Oluşturma Fonksiyonu
+const createTables = async () => {
+    try {
+        await db.query(`CREATE TABLE IF NOT EXISTS yorumlar (id SERIAL PRIMARY KEY, ad TEXT NOT NULL, mesaj TEXT NOT NULL, puan INTEGER NOT NULL, tarih TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)`);
+        await db.query(`CREATE TABLE IF NOT EXISTS onay_bekleyen_yorumlar (id SERIAL PRIMARY KEY, ad TEXT NOT NULL, mesaj TEXT NOT NULL, puan INTEGER NOT NULL, tarih TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)`);
+        await db.query(`CREATE TABLE IF NOT EXISTS hizli_cevaplar (id SERIAL PRIMARY KEY, metin TEXT NOT NULL UNIQUE)`);
+        await db.query(`CREATE TABLE IF NOT EXISTS sohbet_gecmisi (id SERIAL PRIMARY KEY, kullanici_id TEXT, gonderen TEXT, mesaj TEXT, tarih TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)`);
+        await db.query(`CREATE TABLE IF NOT EXISTS kullanici_bilgileri (kullanici_id TEXT PRIMARY KEY, isim TEXT, sohbet_durumu TEXT DEFAULT 'acik')`);
+        
+        // YENİ EKLENDİ: Kullanıcılar tablosu
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS kullanicilar (
+                id SERIAL PRIMARY KEY,
+                ad TEXT NOT NULL,
+                soyad TEXT NOT NULL,
+                email TEXT NOT NULL UNIQUE,
+                sifre_hash TEXT NOT NULL,
+                olusturma_tarihi TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Zengin içerik için varsayılan yorumları ekle
+        const yorumRes = await db.query("SELECT COUNT(*) as count FROM yorumlar");
+        if (yorumRes.rows[0].count == 0) {
+            const defaultYorumlar = [
+                { ad: 'Ahmet Yılmaz', mesaj: 'Takım elbisenin kalitesi ve duruşu harika, tam istediğim gibi oldu. Teşekkürler!', puan: 5 },
+                { ad: 'Murat Kaya', mesaj: 'Çorumdaki en iyi erkek giyim mağazası diyebilirim. Personel çok ilgili.', puan: 5 },
+                { ad: 'Caner Biçer', mesaj: 'Gömlek ve pantolon aldım, kumaşları çok kaliteli. Fiyatlar da makul.', puan: 4 },
+            ];
+            const query = 'INSERT INTO yorumlar (ad, mesaj, puan) VALUES ($1, $2, $3)';
+            for (const yorum of defaultYorumlar) {
+                await db.query(query, [yorum.ad, yorum.mesaj, yorum.puan]);
+            }
+            console.log("Varsayılan onaylanmış yorumlar eklendi.");
+        }
+
+    } catch (err) {
+        if (err.code !== '42P07' && err.code !== '42701') console.error("Tablo oluşturma hatası:", err.message);
+    }
+};
+
+// --- HESAP YÖNETİMİ API'LARI ---
+
+// OPERATÖR GİRİŞİ
 app.post('/login', (req, res) => {
     const { password } = req.body;
     if (password === OPERATOR_PASSWORD) {
@@ -39,10 +87,86 @@ app.post('/login', (req, res) => {
     }
 });
 
-// Statik Dosyaları Sunma
-app.use(express.static(path.join(__dirname, 'public')));
+// YENİ EKLENDİ: KULLANICI KAYIT (REGISTER) API
+app.post('/api/register', async (req, res) => {
+    try {
+        const { ad, soyad, email, sifre } = req.body;
 
-// Token Doğrulama Middleware'i (API için)
+        if (!ad || !soyad || !email || !sifre) {
+            return res.status(400).json({ message: 'Lütfen tüm alanları doldurun.' });
+        }
+
+        const mevcutKullanici = await db.query('SELECT * FROM kullanicilar WHERE email = $1', [email]);
+        if (mevcutKullanici.rows.length > 0) {
+            return res.status(409).json({ message: 'Bu e-posta adresi zaten kullanılıyor.' });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const sifreHash = await bcrypt.hash(sifre, salt);
+
+        const yeniKullanici = await db.query(
+            'INSERT INTO kullanicilar (ad, soyad, email, sifre_hash) VALUES ($1, $2, $3, $4) RETURNING id, email',
+            [ad, soyad, email, sifreHash]
+        );
+
+        res.status(201).json({ 
+            message: 'Hesabınız başarıyla oluşturuldu!',
+            kullanici: yeniKullanici.rows[0]
+        });
+
+    } catch (error) {
+        console.error("Kayıt hatası:", error);
+        res.status(500).json({ message: 'Sunucu hatası. Lütfen daha sonra tekrar deneyin.' });
+    }
+});
+
+// YENİ EKLENDİ: KULLANICI GİRİŞ (LOGIN) API
+app.post('/api/login', async (req, res) => {
+    try {
+        const { email, sifre } = req.body;
+
+        if (!email || !sifre) {
+            return res.status(400).json({ message: 'Lütfen tüm alanları doldurun.' });
+        }
+
+        const kullanici = await db.query('SELECT * FROM kullanicilar WHERE email = $1', [email]);
+        if (kullanici.rows.length === 0) {
+            return res.status(401).json({ message: 'E-posta veya şifre hatalı.' });
+        }
+
+        const dogruSifre = await bcrypt.compare(sifre, kullanici.rows[0].sifre_hash);
+        if (!dogruSifre) {
+            return res.status(401).json({ message: 'E-posta veya şifre hatalı.' });
+        }
+
+        const token = jwt.sign(
+            { 
+                userId: kullanici.rows[0].id,
+                email: kullanici.rows[0].email,
+                isOperator: false 
+            }, 
+            JWT_SECRET,
+            { expiresIn: '8h' }
+        );
+
+        res.status(200).json({
+            message: 'Giriş başarılı!',
+            token: token,
+            kullanici: {
+                id: kullanici.rows[0].id,
+                ad: kullanici.rows[0].ad,
+                email: kullanici.rows[0].email
+            }
+        });
+
+    } catch (error) {
+        console.error("Giriş hatası:", error);
+        res.status(500).json({ message: 'Sunucu hatası. Lütfen daha sonra tekrar deneyin.' });
+    }
+});
+
+
+// --- OPERATÖR İÇİN TOKEN DOĞRULAMA ---
 const authMiddleware = (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -63,48 +187,8 @@ app.get('/operator.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'operator.html'));
 });
 
-// Tabloları Oluşturma Fonksiyonu
-const createTables = async () => {
-    try {
-        await db.query(`CREATE TABLE IF NOT EXISTS yorumlar (id SERIAL PRIMARY KEY, ad TEXT NOT NULL, mesaj TEXT NOT NULL, puan INTEGER NOT NULL, tarih TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)`);
-        await db.query(`CREATE TABLE IF NOT EXISTS onay_bekleyen_yorumlar (id SERIAL PRIMARY KEY, ad TEXT NOT NULL, mesaj TEXT NOT NULL, puan INTEGER NOT NULL, tarih TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)`);
-        await db.query(`CREATE TABLE IF NOT EXISTS hizli_cevaplar (id SERIAL PRIMARY KEY, metin TEXT NOT NULL UNIQUE)`);
-        await db.query(`CREATE TABLE IF NOT EXISTS sohbet_gecmisi (id SERIAL PRIMARY KEY, kullanici_id TEXT, gonderen TEXT, mesaj TEXT, tarih TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)`);
-        await db.query(`CREATE TABLE IF NOT EXISTS kullanici_bilgileri (kullanici_id TEXT PRIMARY KEY, isim TEXT, sohbet_durumu TEXT DEFAULT 'acik')`);
 
-        // Zengin içerik için varsayılan yorumları ekle
-        const yorumRes = await db.query("SELECT COUNT(*) as count FROM yorumlar");
-        if (yorumRes.rows[0].count == 0) {
-            const defaultYorumlar = [
-                { ad: 'Ahmet Yılmaz', mesaj: 'Takım elbisenin kalitesi ve duruşu harika, tam istediğim gibi oldu. Teşekkürler!', puan: 5 },
-                { ad: 'Murat Kaya', mesaj: 'Çorumdaki en iyi erkek giyim mağazası diyebilirim. Personel çok ilgili.', puan: 5 },
-                { ad: 'Caner Biçer', mesaj: 'Gömlek ve pantolon aldım, kumaşları çok kaliteli. Fiyatlar da makul.', puan: 4 },
-                { ad: 'Selim Tuncel', mesaj: 'Düğünüm için smokin alışverişi yaptım. Yardımlarınız için minnettarım, sayenizde çok şık oldum.', puan: 5 },
-                { ad: 'Fatih Gümüş', mesaj: 'Ürün çeşitliliği gayet iyi, aradığım her tarzda bir şeyler bulabiliyorum.', puan: 4 },
-                { ad: 'Emre Sönmez', mesaj: 'Online destekten aldığım bilgiyle mağazaya gittim, tam istediğim ürünü hemen buldum.', puan: 5 },
-                { ad: 'Hakan Demir', mesaj: 'Spor giyim koleksiyonunuzu çok beğendim, özellikle sweatshirtler harika.', puan: 5 },
-                { ad: 'Ozan Aktaş', mesaj: 'Paça boyu tadilatını hemen ücretsiz bir şekilde hallettiler. Müşteri memnuniyetine önem veriyorlar.', puan: 5 },
-                { ad: 'Volkan Can', mesaj: 'Fiyatlar bir tık daha uygun olabilirdi ama kaliteye diyecek yok.', puan: 4 },
-                { ad: 'Gökhan Mercan', mesaj: 'Yıllardır değişmeyen adresim. Her zaman güler yüzle karşılanıyorum.', puan: 5 },
-                { ad: 'İsmail Eren', mesaj: 'Ceket kalıpları tam üzerime göre. Çok memnun kaldım.', puan: 5 },
-                { ad: 'Uğur Şahin', mesaj: 'Yeni sezon ürünlerini takip ediyorum, her zaman çok şık parçalar getiriyorlar.', puan: 5 },
-                { ad: 'Kerem Aslan', mesaj: 'Aldığım kaban hem sıcak tutuyor hem de çok tarz duruyor. Tavsiye ederim.', puan: 5 },
-                { ad: 'Barış Doğan', mesaj: 'Mağaza atmosferi çok ferah ve modern. Alışveriş yaparken keyif aldım.', puan: 4 },
-                { ad: 'Levent Öztürk', mesaj: 'Personelin stil konusundaki önerileri gerçekten çok yerinde. Ufkumu açtılar.', puan: 5 }
-            ];
-            const query = 'INSERT INTO yorumlar (ad, mesaj, puan) VALUES ($1, $2, $3)';
-            for (const yorum of defaultYorumlar) {
-                await db.query(query, [yorum.ad, yorum.mesaj, yorum.puan]);
-            }
-            console.log("Varsayılan onaylanmış yorumlar eklendi.");
-        }
-
-    } catch (err) {
-        if (err.code !== '42P07' && err.code !== '42701') console.error("Tablo oluşturma hatası:", err.message); // Hataları yoksay
-    }
-};
-
-// YORUM API UÇ NOKTALARI
+// --- YORUM API UÇ NOKTALARI ---
 app.get('/api/yorumlar', async (req, res) => {
     try {
         const result = await db.query('SELECT * FROM yorumlar ORDER BY tarih DESC');
@@ -121,7 +205,8 @@ app.post('/api/yorumlar', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// YORUM YÖNETİM API'LARI (OPERATÖR İÇİN)
+
+// --- YORUM YÖNETİM API'LARI (OPERATÖR İÇİN) ---
 app.get('/api/onay-bekleyen-yorumlar', authMiddleware, async (req, res) => {
     try {
         const result = await db.query('SELECT * FROM onay_bekleyen_yorumlar ORDER BY tarih ASC');
@@ -149,7 +234,8 @@ app.delete('/api/onay-bekleyen-yorumlar/:id', authMiddleware, async (req, res) =
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// HIZLI CEVAP API'LARI
+
+// --- HIZLI CEVAP API'LARI ---
 app.get('/api/hizli-cevaplar', authMiddleware, async (req, res) => {
     try {
         const result = await db.query('SELECT * FROM hizli_cevaplar ORDER BY id');
@@ -182,7 +268,8 @@ app.delete('/api/hizli-cevaplar/:id', authMiddleware, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Canlı Destek (Socket.IO)
+
+// --- CANLI DESTEK (Socket.IO) ---
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*", credentials: true } });
 
@@ -197,7 +284,6 @@ io.on('connection', (socket) => {
     if (token) {
         jwt.verify(token, JWT_SECRET, (err, decoded) => {
             if (err || !decoded.isOperator) {
-                console.log(`Geçersiz token ile bağlantı denemesi: ${socket.id}`);
                 return;
             }
             socket.isOperator = true;

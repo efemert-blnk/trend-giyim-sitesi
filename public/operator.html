@@ -2,391 +2,313 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Destek Paneli</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TREND GİYİM - Operatör Paneli</title>
     <style>
-        :root {
-            --bg-main: #f4f4f8; --bg-sidebar: #ffffff; --bg-hover: #f0f0f0; --bg-active: #e0e7ff;
-            --text-main: #333; --text-light: #777; --border-color: #ddd;
-            --msg-user-bg: #dcf8c6; --msg-operator-bg: #fff; --btn-primary-bg: #007bff; --btn-danger-bg: #dc3545; --btn-success-bg: #28a745;
-        }
-        html.dark-theme {
-            --bg-main: #121212; --bg-sidebar: #1e1e1e; --bg-hover: #2c2c2c; --bg-active: #3a3a3a;
-            --text-main: #e0e0e0; --text-light: #999; --border-color: #444;
-            --msg-user-bg: #264b27; --msg-operator-bg: #3a3d40; --btn-primary-bg: #0d6efd; --btn-danger-bg: #bb2d3b; --btn-success-bg: #22863a;
-        }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; display: flex; height: 100vh; background-color: var(--bg-main); color: var(--text-main); }
-        .sidebar { width: 320px; border-right: 1px solid var(--border-color); background-color: var(--bg-sidebar); display: flex; flex-direction: column; }
-        .sidebar .nav-tabs { display: flex; border-bottom: 1px solid var(--border-color); flex-shrink: 0;}
-        .sidebar .tab { padding: 15px; cursor: pointer; text-align: center; flex-grow: 1; background-color: transparent; border: none; color: var(--text-light); font-weight: bold; font-size: 1em;}
-        .sidebar .tab.active { color: var(--text-main); border-bottom: 2px solid var(--btn-primary-bg); }
-        .tab-content { display: none; flex-direction: column; height: 100%; overflow: hidden; }
-        .tab-content.active { display: flex; }
-        .sidebar-header { display: flex; justify-content: space-between; align-items: center; padding: 0 20px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
-        .sidebar h2 { font-size: 1.2em; margin: 20px 0; }
-        #theme-toggle { background: none; border: 1px solid var(--border-color); color: var(--text-main); cursor: pointer; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2em; display: flex; align-items: center; justify-content: center; padding: 0; }
-        #theme-toggle .sun-icon { display: none; }
-        html.dark-theme #theme-toggle .moon-icon { display: none; }
-        html.dark-theme #theme-toggle .sun-icon { display: block; }
-        #users { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; }
-        #users li { padding: 15px 20px; cursor: pointer; border-bottom: 1px solid var(--border-color); }
-        #users li:hover { background-color: var(--bg-hover); }
-        #users li.active { background-color: var(--bg-active); font-weight: bold; }
-        #users li small { display: block; color: var(--text-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .quick-reply-section { padding: 10px; border-top: 1px solid var(--border-color); flex-shrink: 0; }
-        .quick-reply-container { max-height: 140px; overflow-y: auto; padding-right: 5px; }
-        .quick-reply-item { display: flex; align-items: center; gap: 5px; padding: 6px 0; border-bottom: 1px solid var(--border-color); }
-        .quick-reply-item span { flex-grow: 1; font-size: 0.9em; cursor: pointer; }
-        .reply-actions button { background: none; border: none; cursor: pointer; font-size: 1em; color: var(--text-light); padding: 2px 4px; }
-        #yorum-onay-listesi { padding: 10px; overflow-y: auto; flex-grow: 1; }
-        .yorum-karti { background-color: var(--bg-main); border-left: 3px solid var(--text-light); border-radius: 3px; padding: 10px; margin-bottom: 10px; }
-        .yorum-karti blockquote { margin: 0 0 10px 0; font-style: italic; }
-        .yorum-karti-footer { display: flex; justify-content: space-between; align-items: center; font-size: 0.9em; }
-        .yorum-karti-actions button { font-size: 0.8em; padding: 5px 10px; border-radius: 5px; cursor: pointer; border: none; color: white; margin-left: 5px; }
-        .btn-onayla { background-color: var(--btn-success-bg); }
-        .btn-sil { background-color: var(--btn-danger-bg); }
-        #chat-window { flex-grow: 1; display: flex; flex-direction: column; }
-        #chat-header { padding: 20px; border-bottom: 1px solid var(--border-color); background-color: var(--bg-sidebar); font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
-        .chat-title { display: flex; align-items: center; gap: 8px; }
-        .action-btn { background: none; border: 1px solid var(--border-color); color: var(--text-light); cursor: pointer; border-radius: 5px; padding: 5px 8px; font-size: 0.8em; transition: color .2s, border-color .2s; }
-        .action-btn:hover { color: var(--text-main); border-color: var(--text-main); }
-        .action-btn.end-chat { border-color: var(--btn-danger-bg); color: var(--btn-danger-bg); }
-        .action-btn.end-chat:hover { background-color: var(--btn-danger-bg); color: white; }
-        #messages-container { display: flex; flex-grow: 1; align-items: center; justify-content: center; color: var(--text-light); text-align: center; }
-        #messages { flex-grow: 1; padding: 20px; overflow-y: auto; display: none; flex-direction: column; gap: 12px; }
-        .message { padding: 10px 15px; border-radius: 18px; max-width: 70%; word-wrap: break-word; }
-        .user-msg { background-color: var(--msg-user-bg); align-self: flex-start; }
-        .operator-msg { background-color: var(--msg-operator-bg); border: 1px solid var(--border-color); align-self: flex-end; }
-        #reply-form { display: flex; padding: 20px; border-top: 1px solid var(--border-color); background-color: var(--bg-sidebar); }
-        #reply-input { flex-grow: 1; padding: 12px; border: 1px solid var(--border-color); border-radius: 20px; margin-right: 10px; background-color: var(--bg-main); color: var(--text-main); }
-        #new-reply-form { display: flex; gap: 8px; margin-top: 10px; }
-        #new-reply-input { flex-grow: 1; padding: 8px; border: 1px solid var(--border-color); border-radius: 5px; background-color: var(--bg-main); color: var(--text-main); }
-        #new-reply-form button { background-color: var(--btn-success-bg); color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; }
+        :root { --primary: #252a34; --secondary: #bfa071; --background: #f4f4f9; --light-gray: #e9e9e9; --text: #333; --white: #fff; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; margin: 0; background-color: var(--background); color: var(--text); font-size: 16px; }
+        .hidden { display: none !important; }
+
+        #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 100; }
+        #login-container { background-color: var(--white); padding: 40px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); text-align: center; }
+        #login-container h2 { margin-top: 0; }
+        #login-container input { padding: 10px; font-size: 1em; width: 250px; margin-bottom: 15px; border: 1px solid var(--light-gray); border-radius: 4px; }
+        #login-container button { background-color: var(--secondary); color: var(--white); border: none; padding: 12px 20px; font-size: 1em; border-radius: 4px; cursor: pointer; }
+        #login-error { color: #d9534f; margin-top: 10px; }
+
+        #main-panel { display: flex; height: 100vh; }
+        #sidebar { width: 300px; background-color: var(--primary); color: var(--white); display: flex; flex-direction: column; border-right: 1px solid #000; }
+        #sidebar h2 { padding: 20px; margin: 0; background-color: rgba(0,0,0,0.2); font-size: 1.2em; }
+        #conversations-list { list-style-type: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; }
+        #conversations-list li { padding: 15px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: pointer; transition: background-color 0.2s; }
+        #conversations-list li:hover { background-color: rgba(255,255,255,0.1); }
+        #conversations-list li.active { background-color: var(--secondary); }
+        #conversations-list .user-name { font-weight: bold; }
+        #conversations-list .last-message { font-size: 0.9em; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; margin-top: 4px; }
+        
+        #content { flex-grow: 1; display: flex; flex-direction: column; }
+        #navbar { background-color: var(--white); padding: 0 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10; display: flex; }
+        .nav-tab { padding: 15px 20px; cursor: pointer; border-bottom: 3px solid transparent; font-weight: bold; color: #555; }
+        .nav-tab.active { border-bottom-color: var(--secondary); color: var(--secondary); }
+        
+        .page { padding: 20px; overflow-y: auto; flex-grow: 1; display: none; }
+        .page.active { display: block; }
+        
+        #chat-page { display: flex; flex-direction: column; height: calc(100vh - 54px); padding: 0; }
+        #chat-history { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
+        .message-container { display: contents; }
+        .message { padding: 8px 12px; border-radius: 18px; max-width: 70%; margin-bottom: 10px; word-wrap: break-word; line-height: 1.4; }
+        .message.user { background-color: var(--light-gray); align-self: flex-start; }
+        .message.operator { background-color: var(--secondary); color: var(--white); align-self: flex-end; }
+        #chat-input-form { display: flex; padding: 15px; border-top: 1px solid var(--light-gray); background: var(--white); }
+        #chat-input-form textarea { flex-grow: 1; resize: none; border-radius: 20px; padding: 10px 15px; border: 1px solid var(--light-gray); font-size: 1em; }
+        #chat-input-form button { flex-shrink: 0; border-radius: 50%; width: 45px; height: 45px; border: none; background-color: var(--secondary); color: var(--white); cursor: pointer; margin-left: 10px; }
+        
+        table { width: 100%; border-collapse: collapse; background: var(--white); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        th, td { padding: 12px; border-bottom: 1px solid var(--light-gray); text-align: left; }
+        th { background-color: #f8f9fa; }
+        .action-btn { background: var(--secondary); color: var(--white); border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-right: 5px; }
+        .delete-btn { background: #d9534f; }
+        .form-container { background: var(--white); padding: 20px; border-radius: 8px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="nav-tabs">
-            <button class="tab active" data-tab="sohbetler">Sohbetler</button>
-            <button class="tab" data-tab="yorumlar">Yorum Onayı</button>
-        </div>
 
-        <div id="sohbetler-content" class="tab-content active">
-            <div class="sidebar-header">
-                <h2>Aktif Sohbetler</h2>
-                <button id="theme-toggle" title="Temayı Değiştir">
-                    <span class="moon-icon">🌙</span><span class="sun-icon">☀️</span>
-                </button>
-            </div>
-            <ul id="users"></ul>
-            <div class="quick-reply-section">
-                <strong>Hızlı Cevaplar</strong>
-                <div id="quick-replies-container" class="quick-reply-container"></div>
-                <form id="new-reply-form">
-                    <input id="new-reply-input" placeholder="Yeni hızlı cevap ekle..." required autocomplete="off">
-                    <button type="submit">Kaydet</button>
+    <div id="login-overlay">
+        <div id="login-container">
+            <h2>Operatör Girişi</h2>
+            <form id="login-form">
+                <input type="password" id="password" placeholder="Şifreniz" required>
+                <br>
+                <button type="submit">Giriş Yap</button>
+            </form>
+            <p id="login-error" class="hidden">Hatalı şifre.</p>
+        </div>
+    </div>
+
+    <div id="main-panel" class="hidden">
+        <aside id="sidebar">
+            <h2>Sohbetler</h2>
+            <ul id="conversations-list"></ul>
+        </aside>
+
+        <main id="content">
+            <nav id="navbar">
+                <div class="nav-tab active" data-page="chat-page">Sohbet</div>
+                <div class="nav-tab" data-page="comments-page">Yorum Onayı</div>
+                <div class="nav-tab" data-page="quick-replies-page">Hızlı Cevaplar</div>
+                <div class="nav-tab" data-page="users-page">Kayıtlı Kullanıcılar</div>
+            </nav>
+
+            <div id="chat-page" class="page active">
+                <div id="chat-history"><p style="text-align: center; color: #888;">Lütfen bir sohbet seçin.</p></div>
+                <form id="chat-input-form" class="hidden">
+                    <textarea placeholder="Mesajınızı yazın..." rows="1"></textarea>
+                    <button type="submit">Gönder</button>
                 </form>
             </div>
-        </div>
-        
-        <div id="yorumlar-content" class="tab-content">
-            <div class="sidebar-header"><h2>Onay Bekleyen Yorumlar</h2></div>
-            <div id="yorum-onay-listesi"><p style="text-align:center; padding: 20px;">Yorumlar yükleniyor...</p></div>
-        </div>
-    </div>
-    
-    <div id="chat-window">
-        <div id="chat-header" style="display: none;">
-            <div class="chat-title">
-                <span id="chat-username"></span>
-                <button id="edit-username-btn" class="action-btn" title="İsmi Düzenle">✏️</button>
+
+            <div id="comments-page" class="page">
+                <h2>Onay Bekleyen Yorumlar</h2>
+                <table id="comments-table">
+                    <thead><tr><th>Ad</th><th>Puan</th><th>Mesaj</th><th>İşlemler</th></tr></thead>
+                    <tbody></tbody>
+                </table>
             </div>
-            <button id="end-chat-btn" class="action-btn end-chat">Görüşmeyi Bitir</button>
-        </div>
-        <div id="messages-container">Lütfen bir sohbet seçin</div>
-        <div id="messages"></div>
-        <form id="reply-form" style="display: none;">
-            <input id="reply-input" placeholder="Yanıtınızı yazın veya kısayol numarasını girin..." autocomplete="off" />
-            <button type="submit">Gönder</button>
-        </form>
+
+            <div id="quick-replies-page" class="page">
+                <h2>Hızlı Cevap Yönetimi</h2>
+                <div class="form-container">
+                    <form id="quick-reply-form">
+                        <input type="text" placeholder="Yeni hızlı cevap metni..." style="width: 80%; padding: 10px;" required>
+                        <button type="submit" class="action-btn">Ekle</button>
+                    </form>
+                </div>
+                <table id="quick-replies-table">
+                    <thead><tr><th>Metin</th><th>İşlemler</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div id="users-page" class="page">
+                <h2>Kayıtlı Kullanıcılar</h2>
+                <table id="users-table">
+                    <thead><tr><th>Ad Soyad</th><th>E-posta</th><th>Kayıt Tarihi</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </main>
     </div>
 
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <script>
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-            window.location.href = '/login.html';
-        }
+        document.addEventListener('DOMContentLoaded', () => {
+            const loginOverlay = document.getElementById('login-overlay');
+            const mainPanel = document.getElementById('main-panel');
+            const loginForm = document.getElementById('login-form');
+            const loginError = document.getElementById('login-error');
+            const passwordInput = document.getElementById('password');
 
-        const socket = io({
-            auth: { token }
-        });
-        
-        const fetchWithAuth = (url, options = {}) => {
-            options.headers = {
-                ...options.headers,
-                'Authorization': `Bearer ${token}`
-            };
-            return fetch(url, options);
-        };
+            const tabs = document.querySelectorAll('.nav-tab');
+            const pages = document.querySelectorAll('.page');
+            
+            const conversationsList = document.getElementById('conversations-list');
+            const chatHistory = document.getElementById('chat-history');
+            const chatInputForm = document.getElementById('chat-input-form');
+            
+            const notificationSound = new Audio('/notification.mp3');
+            
+            let socket;
+            let token = localStorage.getItem('operatorToken');
+            let conversations = new Map();
+            let activeUserId = null;
 
-        const usersList = document.getElementById('users');
-        const chatHeader = document.getElementById('chat-header');
-        const chatUsername = document.getElementById('chat-username');
-        const messagesContainer = document.getElementById('messages-container');
-        const messagesDiv = document.getElementById('messages');
-        const replyForm = document.getElementById('reply-form');
-        const replyInput = document.getElementById('reply-input');
-        const quickRepliesContainer = document.getElementById('quick-replies-container');
-        const newReplyForm = document.getElementById('new-reply-form');
-        const newReplyInput = document.getElementById('new-reply-input');
-        const themeToggle = document.getElementById('theme-toggle');
-        const editUsernameBtn = document.getElementById('edit-username-btn');
-        const endChatBtn = document.getElementById('end-chat-btn');
-        const tabs = document.querySelectorAll('.tab');
-        const tabContents = document.querySelectorAll('.tab-content');
-        const yorumOnayListesi = document.getElementById('yorum-onay-listesi');
+            if (token) {
+                initDashboard();
+            }
 
-        let conversations = new Map();
-        let quickReplies = [];
-        let activeUserId = null;
-        
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                tabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                const targetId = tab.dataset.tab + '-content';
-                tabContents.forEach(tc => tc.classList.remove('active'));
-                const targetContent = document.getElementById(targetId);
-                targetContent.classList.add('active');
-                if(tab.dataset.tab === 'yorumlar') fetchPendingComments();
-            });
-        });
-
-        function applyTheme(theme) {
-            document.documentElement.classList.toggle('dark-theme', theme === 'dark');
-        }
-        themeToggle.addEventListener('click', () => {
-            const newTheme = document.documentElement.classList.contains('dark-theme') ? 'light' : 'dark';
-            localStorage.setItem('support-theme', newTheme);
-            applyTheme(newTheme);
-        });
-        applyTheme(localStorage.getItem('support-theme'));
-
-        async function fetchAndRenderQuickReplies() {
-            try {
-                const response = await fetchWithAuth('/api/hizli-cevaplar');
-                if(!response.ok) {
-                    if(response.status === 401 || response.status === 403) {
-                         localStorage.removeItem('authToken');
-                         window.location.href = '/login.html';
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                try {
+                    const response = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: passwordInput.value }) });
+                    if (response.ok) {
+                        const data = await response.json();
+                        token = data.token;
+                        localStorage.setItem('operatorToken', token);
+                        initDashboard();
+                    } else {
+                        loginError.classList.remove('hidden');
                     }
-                    return;
+                } catch (error) {
+                    loginError.classList.remove('hidden');
                 }
-                quickReplies = await response.json();
-                quickRepliesContainer.innerHTML = '';
-                quickReplies.forEach(addQuickReplyItem);
-            } catch (error) { console.error('Hızlı cevaplar alınamadı:', error); }
-        }
-
-        function addQuickReplyItem(reply, index) {
-            const item = document.createElement('div');
-            item.className = 'quick-reply-item';
-            item.innerHTML = `
-                <span title="Kullanmak için tıkla veya sohbete ${index + 1} yazıp Enter'a bas.">${index + 1}. ${reply.metin}</span>
-                <div class="reply-actions">
-                    <button class="edit-reply-btn" data-id="${reply.id}" data-text="${reply.metin}" title="Düzenle">✏️</button>
-                    <button class="delete-reply-btn" data-id="${reply.id}" title="Sil">🗑️</button>
-                </div>
-            `;
-            item.querySelector('span').addEventListener('click', () => {
-                replyInput.value = reply.metin;
-                replyInput.focus();
             });
-            item.querySelector('.edit-reply-btn').addEventListener('click', handleEditReply);
-            item.querySelector('.delete-reply-btn').addEventListener('click', handleDeleteReply);
-            quickRepliesContainer.appendChild(item);
-        }
-        
-        newReplyForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const text = newReplyInput.value.trim();
-            if (!text) return;
-            try {
-                const response = await fetchWithAuth('/api/hizli-cevaplar', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ metin: text })
+
+            function initDashboard() {
+                loginOverlay.classList.add('hidden');
+                mainPanel.classList.remove('hidden');
+                connectSocket();
+                loadAllTabsData();
+            }
+
+            function connectSocket() {
+                socket = io({ auth: { token } });
+
+                socket.on('connect', () => console.log('Operatör olarak bağlandı.'));
+                
+                socket.on('all conversations', (allConvos) => {
+                    allConvos.forEach(convo => conversations.set(convo.id, convo));
+                    renderConversationsList();
                 });
-                if (response.ok) {
-                    fetchAndRenderQuickReplies();
-                    newReplyInput.value = '';
-                } else {
-                    alert(`Hata: ${(await response.json()).error}`);
+                
+                socket.on('update conversation', (convo) => {
+                    const isNew = !conversations.has(convo.id);
+                    conversations.set(convo.id, convo);
+                    if (isNew || activeUserId !== convo.id) {
+                         notificationSound.play().catch(err => {});
+                    }
+                    renderConversationsList();
+                    if (activeUserId === convo.id) {
+                        renderChatHistory(activeUserId);
+                    }
+                });
+            }
+
+            function renderConversationsList() {
+                conversationsList.innerHTML = '';
+                const sortedConvos = Array.from(conversations.values()).sort((a,b) => new Date(b.messages[b.messages.length - 1]?.tarih || 0) - new Date(a.messages[a.messages.length - 1]?.tarih || 0));
+                
+                for (const convo of sortedConvos) {
+                    const li = document.createElement('li');
+                    li.dataset.userId = convo.id;
+                    li.className = activeUserId === convo.id ? 'active' : '';
+                    li.innerHTML = `<div class="user-name">${convo.name}</div><div class="last-message">${convo.messages[convo.messages.length - 1]?.text || 'Sohbete yeni bağlandı.'}</div>`;
+                    li.addEventListener('click', () => selectConversation(convo.id));
+                    conversationsList.appendChild(li);
                 }
-            } catch (error) { alert('Cevap kaydedilemedi.'); }
-        });
-
-        async function handleEditReply(e) {
-            const id = e.currentTarget.dataset.id;
-            const oldText = e.currentTarget.dataset.text;
-            const newText = prompt("Yeni metni girin:", oldText);
-            if (newText && newText.trim() && newText.trim() !== oldText) {
-                await fetchWithAuth(`/api/hizli-cevaplar/${id}`, {
-                    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ metin: newText.trim() })
-                });
-                fetchAndRenderQuickReplies();
             }
-        }
 
-        async function handleDeleteReply(e) {
-            const id = e.currentTarget.dataset.id;
-            if (confirm("Bu cevabı silmek istediğinizden emin misiniz?")) {
-                await fetchWithAuth(`/api/hizli-cevaplar/${id}`, { method: 'DELETE' });
-                fetchAndRenderQuickReplies();
+            function selectConversation(userId) {
+                activeUserId = userId;
+                renderConversationsList();
+                renderChatHistory(userId);
+                chatInputForm.classList.remove('hidden');
             }
-        }
 
-        async function fetchPendingComments() {
-            try {
-                const response = await fetchWithAuth('/api/onay-bekleyen-yorumlar');
-                if (!response.ok) throw new Error('Yorumlar alınamadı');
-                const yorumlar = await response.json();
-                renderPendingComments(yorumlar);
-            } catch (error) {
-                console.error(error);
-                yorumOnayListesi.innerHTML = '<p>Yorumlar yüklenemedi.</p>';
-            }
-        }
-
-        function renderPendingComments(yorumlar) {
-            yorumOnayListesi.innerHTML = '';
-            if (yorumlar.length === 0) {
-                yorumOnayListesi.innerHTML = '<p style="text-align:center; padding: 20px;">Onay bekleyen yorum yok.</p>';
-                return;
-            }
-            yorumlar.forEach(yorum => {
-                const kart = document.createElement('div');
-                kart.className = 'yorum-karti';
-                kart.dataset.id = yorum.id;
-                kart.innerHTML = `
-                    <blockquote>"${yorum.mesaj}"</blockquote>
-                    <div class="yorum-karti-footer">
-                        <span><strong>${yorum.ad}</strong> - Puan: ${'★'.repeat(yorum.puan)}${'☆'.repeat(5 - yorum.puan)}</span>
-                        <div class="yorum-karti-actions">
-                            <button class="btn-onayla">Onayla</button>
-                            <button class="btn-sil">Sil</button>
-                        </div>
-                    </div>
-                `;
-                kart.querySelector('.btn-onayla').addEventListener('click', () => approveComment(yorum.id));
-                kart.querySelector('.btn-sil').addEventListener('click', () => deletePendingComment(yorum.id));
-                yorumOnayListesi.appendChild(kart);
-            });
-        }
-        
-        async function approveComment(id) {
-            await fetchWithAuth(`/api/yorumlar/onayla/${id}`, { method: 'POST' });
-            document.querySelector(`.yorum-karti[data-id='${id}']`).remove();
-        }
-
-        async function deletePendingComment(id) {
-            await fetchWithAuth(`/api/onay-bekleyen-yorumlar/${id}`, { method: 'DELETE' });
-            document.querySelector(`.yorum-karti[data-id='${id}']`).remove();
-        }
-
-        socket.on('all conversations', (allConvos) => {
-            allConvos.forEach(convo => conversations.set(convo.id, convo));
-            renderUserList();
-        });
-        socket.on('update conversation', (convo) => {
-            conversations.set(convo.id, convo);
-            renderUserList();
-            if (convo.id === activeUserId) {
-                chatUsername.textContent = convo.name;
-                renderMessages(convo.id);
-            }
-        });
-
-        function renderUserList() {
-            const sortedConvos = Array.from(conversations.values()).sort((a,b) => (b.messages.length > 0 ? new Date(b.messages[b.messages.length - 1].timestamp || 0) : 0) - (a.messages.length > 0 ? new Date(a.messages[a.messages.length - 1].timestamp || 0) : 0));
-            usersList.innerHTML = '';
-            sortedConvos.forEach(convo => {
-                const li = document.createElement('li');
-                li.dataset.userId = convo.id;
-                li.innerHTML = `<strong>${convo.name}</strong><small>${convo.lastMessage || '...'}</small>`;
-                if (convo.id === activeUserId) li.classList.add('active');
-                li.addEventListener('click', () => selectUser(convo.id));
-                usersList.appendChild(li);
-            });
-        }
-        
-        function selectUser(userId) {
-            activeUserId = userId;
-            const convo = conversations.get(userId);
-            chatUsername.textContent = convo.name;
-            chatHeader.style.display = 'flex';
-            messagesContainer.style.display = 'none';
-            messagesDiv.style.display = 'flex';
-            replyForm.style.display = 'flex';
-            renderUserList();
-            renderMessages(userId);
-            replyInput.focus();
-        }
-
-        function renderMessages(userId) {
-            messagesDiv.innerHTML = '';
-            const convo = conversations.get(userId);
-            if (convo) {
+            function renderChatHistory(userId) {
+                const convo = conversations.get(userId);
+                chatHistory.innerHTML = '';
+                if (!convo) return;
                 convo.messages.forEach(msg => {
-                    const msgDiv = document.createElement('div');
-                    msgDiv.classList.add('message', msg.from === 'user' ? 'user-msg' : 'operator-msg');
-                    msgDiv.textContent = msg.text;
-                    messagesDiv.appendChild(msgDiv);
+                    const div = document.createElement('div');
+                    div.className = `message ${msg.from}`;
+                    div.textContent = msg.text;
+                    chatHistory.appendChild(div);
+                });
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            }
+
+            chatInputForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const textarea = e.target.querySelector('textarea');
+                const message = textarea.value.trim();
+                if (message && activeUserId) {
+                    socket.emit('chat message from operator', { targetUserId: activeUserId, message });
+                    textarea.value = '';
+                }
+            });
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    pages.forEach(p => p.classList.remove('active'));
+                    tab.classList.add('active');
+                    document.getElementById(tab.dataset.page).classList.add('active');
+                    loadTabData(tab.dataset.page);
+                });
+            });
+
+            function loadAllTabsData(){
+                loadTabData('comments-page');
+                loadTabData('quick-replies-page');
+                loadTabData('users-page');
+            }
+
+            function loadTabData(pageId) {
+                if (pageId === 'comments-page') loadPendingComments();
+                if (pageId === 'quick-replies-page') loadQuickReplies();
+                if (pageId === 'users-page') loadRegisteredUsers();
+            }
+
+            const apiFetch = (url, options = {}) => fetch(url, { ...options, headers: { ...options.headers, 'Authorization': `Bearer ${token}` } });
+
+            async function loadPendingComments() {
+                const res = await apiFetch('/api/onay-bekleyen-yorumlar');
+                if(!res.ok) return;
+                const comments = await res.json();
+                const tbody = document.querySelector('#comments-table tbody');
+                tbody.innerHTML = '';
+                comments.forEach(c => {
+                    tbody.innerHTML += `<tr data-id="${c.id}"><td>${c.ad}</td><td>${'★'.repeat(c.puan)}</td><td>${c.mesaj}</td><td><button class="action-btn" onclick="approveComment(${c.id})">Onayla</button><button class="action-btn delete-btn" onclick="rejectComment(${c.id})">Reddet</button></td></tr>`;
                 });
             }
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-        
-        replyForm.addEventListener('submit', e => {
-            e.preventDefault();
-            let message = replyInput.value.trim();
-            if (message && activeUserId) {
-                const replyIndex = parseInt(message, 10) - 1;
-                if (!isNaN(replyIndex) && quickReplies[replyIndex]) {
-                    message = quickReplies[replyIndex].metin;
-                }
-                socket.emit('chat message from operator', { targetUserId: activeUserId, message });
-                replyInput.value = '';
-            }
-        });
 
-        editUsernameBtn.addEventListener('click', () => {
-            if (!activeUserId) return;
-            const oldName = conversations.get(activeUserId).name;
-            const newName = prompt("Müşteri için yeni bir isim girin:", oldName);
-            if (newName && newName.trim() && newName.trim() !== oldName) {
-                socket.emit('update user name', { userId: activeUserId, newName: newName.trim() });
+            async function loadQuickReplies() {
+                const res = await apiFetch('/api/hizli-cevaplar');
+                 if(!res.ok) return;
+                const replies = await res.json();
+                const tbody = document.querySelector('#quick-replies-table tbody');
+                tbody.innerHTML = '';
+                replies.forEach(r => {
+                    tbody.innerHTML += `<tr data-id="${r.id}"><td>${r.metin}</td><td><button class="action-btn delete-btn" onclick="deleteQuickReply(${r.id})">Sil</button></td></tr>`;
+                });
             }
-        });
-        
-        endChatBtn.addEventListener('click', () => {
-            if (activeUserId && confirm("Bu görüşmeyi sonlandırmak istediğinizden emin misiniz? Müşteri ekranı temizlenecektir.")) {
-                socket.emit('end chat', { userId: activeUserId });
-            }
-        });
 
-        socket.on('connect', () => {
-            console.log('Sunucuya bağlandı!');
-            fetchAndRenderQuickReplies();
-            fetchPendingComments();
-        });
-        
-        socket.on('connect_error', (err) => {
-            if (err.message === "Authentication error") {
-                localStorage.removeItem('authToken');
-                window.location.href = '/login.html';
+            async function loadRegisteredUsers() {
+                const res = await apiFetch('/api/admin/users');
+                if(!res.ok) return;
+                const users = await res.json();
+                const tbody = document.querySelector('#users-table tbody');
+                tbody.innerHTML = '';
+                users.forEach(u => {
+                    const date = new Date(u.olusturma_tarihi).toLocaleString('tr-TR');
+                    tbody.innerHTML += `<tr><td>${u.ad} ${u.soyad}</td><td>${u.email}</td><td>${date}</td></tr>`;
+                });
             }
+
+            window.approveComment = async (id) => { await apiFetch(`/api/yorumlar/onayla/${id}`, { method: 'POST' }); document.querySelector(`#comments-table tr[data-id='${id}']`).remove(); };
+            window.rejectComment = async (id) => { await apiFetch(`/api/onay-bekleyen-yorumlar/${id}`, { method: 'DELETE' }); document.querySelector(`#comments-table tr[data-id='${id}']`).remove(); };
+            window.deleteQuickReply = async (id) => { await apiFetch(`/api/hizli-cevaplar/${id}`, { method: 'DELETE' }); document.querySelector(`#quick-replies-table tr[data-id='${id}']`).remove(); };
+            
+            document.getElementById('quick-reply-form').addEventListener('submit', async(e) => {
+                e.preventDefault();
+                const input = e.target.querySelector('input');
+                const metin = input.value;
+                if (!metin) return;
+                await apiFetch('/api/hizli-cevaplar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ metin }) });
+                input.value = '';
+                loadQuickReplies();
+            });
         });
     </script>
 </body>
